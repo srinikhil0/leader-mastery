@@ -147,7 +147,7 @@ const ChatPage = () => {
           {/* Logo and Toggle */}
           <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
             <img 
-              src="/leader-mastery-emblem-text.png" 
+              src="./leader-mastery-emblem-text.png" 
               alt="Leader Mastery"
               className="h-8 w-auto"
             />
@@ -434,7 +434,7 @@ const ChatPage = () => {
   const NewChatWelcome = () => (
     <div className="flex flex-col items-center justify-center flex-1 p-8">
       <img 
-        src="/leader-mastery-emblem-text.png" 
+        src="./leader-mastery-emblem-text.png" 
         alt="Leader Mastery"
         className="h-24 w-24 mb-8" 
       />

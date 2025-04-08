@@ -77,7 +77,7 @@ export default function MobileChatLayout({
           </svg>
         </button>
         <img 
-          src="/leader-mastery-emblem-text.png" 
+          src="./leader-mastery-emblem-text.png" 
           alt="Leader Mastery"
           className="h-8 w-auto ml-3" 
         />
@@ -97,7 +97,7 @@ export default function MobileChatLayout({
         {messages.length === 0 && isNewChat ? (
           <div className="h-full flex flex-col items-center justify-center p-4">
             <img 
-              src="/leader-mastery-emblem-text.png" 
+              src="./leader-mastery-emblem-text.png" 
               alt="Leader Mastery"
               className="h-16 w-16 mb-6" 
             />
@@ -268,7 +268,7 @@ export default function MobileChatLayout({
           {/* Sidebar Header */}
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <img 
-              src="/leader-mastery-emblem-text.png" 
+              src="./leader-mastery-emblem-text.png" 
               alt="Leader Mastery"
               className="h-8 w-auto"
             />

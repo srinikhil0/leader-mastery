@@ -20,7 +20,7 @@ const ForgotPasswordPage = () => {
           {/* Company Logo */}
           <div className="flex justify-center mb-12 transform transition-all duration-500 hover:scale-105">
             <img 
-              src="/leader-mastery-emblem-text.png" 
+              src="./leader-mastery-emblem-text.png" 
               alt="Leader Mastery" 
               className="h-24 w-24 drop-shadow-lg"
             />
@@ -106,7 +106,7 @@ const ForgotPasswordPage = () => {
         
         <div className="relative z-10 text-center transform transition-all duration-500 hover:scale-105">
           <img 
-            src="/leader-mastery-emblem-text.png"
+            src="./leader-mastery-emblem-text.png"
             alt="Leader Mastery"
             className="w-48 h-48 mb-8 drop-shadow-2xl"
           />

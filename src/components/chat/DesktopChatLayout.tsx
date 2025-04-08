@@ -107,7 +107,7 @@ const DesktopChatLayout = ({
           <>
             <div className="p-4 border-b border-gray-200">
               <img 
-                src="/leader-mastery-emblem-text.png" 
+                src="./leader-mastery-emblem-text.png" 
                 alt="Leader Mastery"
                 className="h-8 w-auto" 
               />
@@ -175,7 +175,7 @@ const DesktopChatLayout = ({
           {messages.length === 0 && isNewChat ? (
             <div className="h-full flex flex-col items-center justify-center">
               <img 
-                src="/leader-mastery-emblem-text.png" 
+                src="./leader-mastery-emblem-text.png" 
                 alt="Leader Mastery"
                 className="h-16 w-16 mb-6" 
               />

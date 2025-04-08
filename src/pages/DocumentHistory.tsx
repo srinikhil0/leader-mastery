@@ -85,7 +85,7 @@ const DocumentHistory = () => {
       >
         <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
           <img 
-            src="/leader-mastery-emblem-text.png" 
+            src="./leader-mastery-emblem-text.png" 
             alt="Leader Mastery"
             className="h-8 w-auto"
           />

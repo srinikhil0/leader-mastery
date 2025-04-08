@@ -4,6 +4,7 @@ import SignupPage from './components/auth/SignupPage';
 import ForgotPasswordPage from './components/auth/ForgotPasswordPage';
 import ChatPage from './components/chat/ChatPage';
 import DocumentHistory from './pages/DocumentHistory';
+import NotFoundPage from './components/NotFoundPage';
 
 const AppRoutes = () => {
   return (
@@ -14,6 +15,7 @@ const AppRoutes = () => {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/chat" element={<ChatPage />} />
       <Route path="/documents" element={<DocumentHistory />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 };
