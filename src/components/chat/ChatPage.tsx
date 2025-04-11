@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Message, Citation, Conversation, Persona } from './types';
 import MobileChatLayout from './MobileChatLayout';
 import SettingsModal from '../settings/SettingsModal';
+import { useAuth } from '../../hooks/useAuth';
 
 const ChatPage = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [citations, setCitations] = useState<Citation[]>([]);
@@ -58,13 +60,6 @@ const ChatPage = () => {
       icon: '🏥'
     }
   ];
-
-  // Mock user data
-  const mockUser = {
-    name: 'John Doe',
-    email: 'john@example.com',
-    lastLogin: new Date()
-  };
 
   // Handle message submission
   const handleSubmit = async (input: string) => {
@@ -555,7 +550,7 @@ const ChatPage = () => {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        user={mockUser}
+        user={currentUser}
       />
     </div>
   );

@@ -2,6 +2,7 @@ import { Dispatch, SetStateAction, useState } from 'react';
 import { Message, Conversation, Citation } from './types';
 import { useNavigate } from 'react-router-dom';
 import SettingsModal from '../settings/SettingsModal';
+import { useAuth } from '../../hooks/useAuth';
 
 interface MobileChatLayoutProps {
   messages: Message[];
@@ -55,15 +56,9 @@ export default function MobileChatLayout({
   inputRef
 }: MobileChatLayoutProps) {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Mock user data - replace with real data later
-  const mockUser = {
-    name: 'John Doe',
-    email: 'john@example.com',
-    lastLogin: new Date()
-  };
-
   return (
     <div className="flex flex-col h-screen bg-light-bg-secondary dark:bg-dark-bg-secondary">
       {/* Mobile Header */}
@@ -407,7 +402,7 @@ export default function MobileChatLayout({
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        user={mockUser}
+        user={currentUser}
       />
     </div>
   );

@@ -2,17 +2,12 @@ import { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-
-interface User {
-  name: string;
-  email: string;
-  lastLogin: Date;
-}
+import { User } from 'firebase/auth';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: User;
+  user: User | null;
 }
 
 type SettingsTab = 'profile' | 'terms';
@@ -32,7 +27,7 @@ const SettingsModal = ({ isOpen, onClose, user }: SettingsModalProps) => {
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !user) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50">
@@ -90,16 +85,7 @@ const SettingsModal = ({ isOpen, onClose, user }: SettingsModalProps) => {
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto
-            [&::-webkit-scrollbar]:w-2
-            [&::-webkit-scrollbar-track]:bg-light-bg-secondary
-            [&::-webkit-scrollbar-track]:dark:bg-dark-bg-secondary
-            [&::-webkit-scrollbar-thumb]:bg-light-border
-            [&::-webkit-scrollbar-thumb]:dark:bg-dark-border
-            [&::-webkit-scrollbar-thumb]:rounded-full
-            [&::-webkit-scrollbar-thumb]:border-2
-            [&::-webkit-scrollbar-thumb]:border-light-bg-primary
-            [&::-webkit-scrollbar-thumb]:dark:border-dark-bg-primary">
+          <div className="flex-1 overflow-y-auto">
             <div className="p-4 md:p-6 max-w-3xl mx-auto">
               {activeTab === 'profile' ? (
                 <div className="space-y-6">
@@ -112,7 +98,7 @@ const SettingsModal = ({ isOpen, onClose, user }: SettingsModalProps) => {
                       </label>
                       <input
                         type="text"
-                        defaultValue={user.name}
+                        defaultValue={user.displayName || ''}
                         className="w-full px-3 py-2 bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>
@@ -123,40 +109,45 @@ const SettingsModal = ({ isOpen, onClose, user }: SettingsModalProps) => {
                       </label>
                       <input
                         type="email"
-                        defaultValue={user.email}
-                        className="w-full px-3 py-2 bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        defaultValue={user.email || ''}
+                        disabled
+                        className="w-full px-3 py-2 bg-light-bg-secondary dark:bg-dark-bg-secondary text-light-text-secondary dark:text-dark-text-secondary border border-light-border dark:border-dark-border rounded-lg cursor-not-allowed"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-1">
-                        Current Password
-                      </label>
-                      <input
-                        type="password"
-                        className="w-full px-3 py-2 bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      />
-                    </div>
+                    {!user.providerData[0]?.providerId.includes('google') && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-1">
+                            Current Password
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full px-3 py-2 bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-1">
-                        New Password
-                      </label>
-                      <input
-                        type="password"
-                        className="w-full px-3 py-2 bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      />
-                    </div>
+                        <div>
+                          <label className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-1">
+                            New Password
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full px-3 py-2 bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-1">
-                        Retype New Password
-                      </label>
-                      <input
-                        type="password"
-                        className="w-full px-3 py-2 bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      />
-                    </div>
+                        <div>
+                          <label className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-1">
+                            Retype New Password
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full px-3 py-2 bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          />
+                        </div>
+                      </>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-1">
@@ -175,7 +166,7 @@ const SettingsModal = ({ isOpen, onClose, user }: SettingsModalProps) => {
 
                     <div className="pt-4">
                       <p className="text-sm text-light-text-tertiary dark:text-dark-text-tertiary">
-                        Last login: {user.lastLogin.toLocaleString()}
+                        Last login: {user.metadata.lastSignInTime}
                       </p>
                     </div>
 

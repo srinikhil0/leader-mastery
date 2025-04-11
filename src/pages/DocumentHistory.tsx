@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Document, DocumentHistoryState } from '../types/document';
 import SettingsModal from '../components/settings/SettingsModal';
+import { useAuth } from '../hooks/useAuth';
 
 const DocumentHistory = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [state, setState] = useState<DocumentHistoryState>({
     documents: [],
     currentPage: 1,
@@ -33,13 +35,6 @@ const DocumentHistory = () => {
       setIsSidebarOpen(false);
     }
   }, [isMobile]);
-
-  // Mock user data
-  const mockUser = {
-    name: 'John Doe',
-    email: 'john@example.com',
-    lastLogin: new Date()
-  };
 
   // Mock data for demonstration
   useEffect(() => {
@@ -331,7 +326,7 @@ const DocumentHistory = () => {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        user={mockUser}
+        user={currentUser}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import { Dispatch, SetStateAction, useState, RefObject } from 'react';
 import { Message, Conversation, Citation, Persona } from './types';
 import SettingsModal from '../settings/SettingsModal';
+import { useAuth } from '../../hooks/useAuth';
 
 interface DesktopChatLayoutProps {
   messages: Message[];
@@ -50,14 +51,8 @@ const DesktopChatLayout = ({
   inputRef
 }: DesktopChatLayoutProps) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { currentUser } = useAuth();
   
-  // Mock user data - replace with real data later
-  const mockUser = {
-    name: 'John Doe',
-    email: 'john@example.com',
-    lastLogin: new Date()
-  };
-
   // Personas data
   const personas: Persona[] = [
     {
@@ -331,7 +326,7 @@ const DesktopChatLayout = ({
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        user={mockUser}
+        user={currentUser}
       />
 
       {/* Persona Modal */}
