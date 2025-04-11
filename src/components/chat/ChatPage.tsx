@@ -21,7 +21,7 @@ const ChatPage = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Input ref for focus management
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Suggested prompts for new chat
   const suggestedPrompts = [
@@ -299,29 +299,47 @@ const ChatPage = () => {
 
   // Chat Input Component
   const ChatInput = () => (
-    <div className="border-t border-light-border dark:border-dark-border p-4 bg-light-bg-primary dark:bg-dark-bg-primary">
+    <div className="border-t border-light-border dark:border-dark-border px-4 py-2">
       <form 
         onSubmit={(e) => {
           e.preventDefault();
           handleSubmit(currentInput);
         }}
-        className="space-y-3"
+        className="space-y-2"
       >
         {/* Text Input */}
         <div className="relative">
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
             value={currentInput}
             onChange={(e) => setCurrentInput(e.target.value)}
             disabled={isGenerating}
             placeholder={isGenerating ? "AI is generating..." : "Ask me anything..."}
-            className="w-full h-10 px-4 rounded-lg border border-light-border dark:border-dark-border bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all duration-300 text-base placeholder:text-light-text-tertiary dark:placeholder:text-dark-text-tertiary disabled:bg-light-bg-secondary dark:disabled:bg-dark-bg-secondary disabled:cursor-not-allowed"
-            autoFocus
+            rows={1}
+            style={{ resize: 'none' }}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = `${Math.min(target.scrollHeight, 200)}px`; // Increased max height to 200px
+            }}
+            className="w-full px-4 py-3 pr-20 rounded-lg border border-light-border dark:border-dark-border 
+              bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary 
+              focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 
+              transition-all duration-300 text-base placeholder:text-light-text-tertiary 
+              dark:placeholder:text-dark-text-tertiary disabled:bg-light-bg-secondary 
+              dark:disabled:bg-dark-bg-secondary disabled:cursor-not-allowed
+              min-h-[44px] max-h-[200px] overflow-y-auto leading-6"
           />
           
+          {/* Character count */}
+          {currentInput.length > 0 && (
+            <div className="absolute right-20 bottom-2 text-xs text-light-text-tertiary dark:text-dark-text-tertiary">
+              {currentInput.length} characters
+            </div>
+          )}
+
           {/* Send and Mic Buttons */}
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          <div className="absolute right-2 top-2 flex items-center gap-2">
             <button 
               type="button"
               disabled={isGenerating}
@@ -346,18 +364,8 @@ const ChatPage = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3 px-1">
-          {/* Search Button */}
-          <button 
-            type="button"
-            className="text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary transition-colors flex items-center gap-1 text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 4 10 15 15 0 0 1-4 10A15 15 0 0 1 8 13a15 15 0 0 1 4-10z" />
-            </svg>
-            <span>Search</span>
-          </button>
 
-          {/* Attach Button with Dropdown */}
+          {/* Attach Button */}{/* Attach Button with Dropdown */}
           <div className="relative">
             <button
               type="button"
@@ -392,6 +400,17 @@ const ChatPage = () => {
               </div>
             )}
           </div>
+          
+          {/* Search Button */}
+          <button 
+            type="button"
+            className="text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary transition-colors flex items-center gap-1 text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 4 10 15 15 0 0 1-4 10A15 15 0 0 1 8 13a15 15 0 0 1 4-10z" />
+            </svg>
+            <span>Search</span>
+          </button>
 
           {/* Persona Button */}
           <button 
@@ -447,8 +466,9 @@ const ChatPage = () => {
           <button
             key={index}
             onClick={() => setCurrentInput(prompt)}
-            className="p-4 text-left rounded-lg border-2 border-light-border dark:border-dark-border hover:border-primary 
-              hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-all duration-300 text-light-text-primary dark:text-dark-text-primary"
+            className="p-4 text-left rounded-lg border border-light-border dark:border-dark-border hover:border-primary 
+              bg-light-bg-primary dark:bg-dark-bg-primary hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary 
+              transition-all duration-300 text-light-text-primary dark:text-dark-text-primary"
           >
             {prompt}
           </button>
@@ -466,7 +486,7 @@ const ChatPage = () => {
           className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
         >
           <div
-            className={`max-w-[70%] rounded-lg p-4 ${
+            className={`max-w-[70%] rounded-lg p-4 whitespace-pre-wrap break-words ${
               message.type === 'user'
                 ? 'bg-primary text-white'
                 : 'bg-light-bg-secondary dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary'
@@ -505,7 +525,7 @@ const ChatPage = () => {
         setIsSourceMenuOpen={setIsSourceMenuOpen}
         isRecording={isRecording}
         setIsRecording={setIsRecording}
-        inputRef={inputRef as React.RefObject<HTMLInputElement>}
+        inputRef={inputRef as React.RefObject<HTMLTextAreaElement>}
       />
     );
   }

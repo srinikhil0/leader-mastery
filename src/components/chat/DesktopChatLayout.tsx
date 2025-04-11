@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useState } from 'react';
+import { Dispatch, SetStateAction, useState, RefObject } from 'react';
 import { Message, Conversation, Citation, Persona } from './types';
 import SettingsModal from '../settings/SettingsModal';
 
@@ -23,7 +23,7 @@ interface DesktopChatLayoutProps {
   setIsSourceMenuOpen: Dispatch<SetStateAction<boolean>>;
   isRecording: boolean;
   setIsRecording: Dispatch<SetStateAction<boolean>>;
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef?: RefObject<HTMLTextAreaElement>;
 }
 
 const DesktopChatLayout = ({
@@ -216,14 +216,14 @@ const DesktopChatLayout = ({
             className="space-y-3"
           >
             <div className="relative">
-              <input
+              <textarea
                 ref={inputRef}
-                type="text"
                 value={currentInput}
                 onChange={(e) => setCurrentInput(e.target.value)}
                 disabled={isGenerating}
                 placeholder={isGenerating ? "AI is generating..." : "Ask me anything..."}
-                className="w-full h-10 px-4 rounded-lg border border-gray-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 text-base"
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 text-base resize-none"
+                rows={1}
                 autoFocus
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">

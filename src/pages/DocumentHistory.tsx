@@ -171,28 +171,30 @@ const DocumentHistory = () => {
   };
 
   return (
-    <div className="flex w-full h-screen bg-light-bg-tertiary dark:bg-dark-bg-tertiary">
+    <div className="flex w-full h-screen overflow-hidden bg-light-bg-tertiary dark:bg-dark-bg-tertiary">
       {/* Show sidebar differently based on viewport */}
       {!isMobile && <LeftSidebar />}
       
-      <div className="flex-1 flex flex-col bg-light-bg-primary dark:bg-dark-bg-primary">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-light-bg-primary dark:bg-dark-bg-primary">
         {/* Header */}
-        <div className="p-6 border-b border-light-border dark:border-dark-border flex items-center">
-          {isMobile && (
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="mr-4 p-1 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
-            >
-              <svg className="w-6 h-6 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-          )}
-          <h1 className="text-2xl font-semibold text-light-text-primary dark:text-dark-text-primary">Document History</h1>
+        <div className="flex-shrink-0 bg-light-bg-primary dark:bg-dark-bg-primary border-b border-light-border dark:border-dark-border">
+          <div className="p-6 flex items-center">
+            {isMobile && (
+              <button 
+                onClick={() => setIsSidebarOpen(true)}
+                className="mr-4 p-1 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            )}
+            <h1 className="text-2xl font-semibold text-light-text-primary dark:text-dark-text-primary">Document History</h1>
+          </div>
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 p-6">
+        <div className="flex-1 flex flex-col overflow-hidden bg-light-bg-primary dark:bg-dark-bg-primary">
           {state.isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -200,97 +202,121 @@ const DocumentHistory = () => {
           ) : state.error ? (
             <div className="text-error text-center">{state.error}</div>
           ) : (
-            <div className="space-y-4">
-              {/* Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-light-border dark:border-dark-border">
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary">
-                        Document Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary">
-                        Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary">
-                        Chat Instance
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary">
-                        Upload Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary">
-                        Size
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentDocuments.map(doc => (
-                      <tr key={doc.id} className="hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary">
-                        <td className="px-6 py-4 text-sm text-light-text-primary dark:text-dark-text-primary">
-                          <div className="flex items-center gap-2">
-                            <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span>{doc.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-light-text-secondary dark:text-dark-text-secondary uppercase">
-                          {doc.type}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                          {doc.chatTitle}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                          {doc.uploadedAt.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                          {formatFileSize(doc.size)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div className="flex flex-col h-full">
+              {/* Scrollable Table Container */}
+              <div className="flex-1 overflow-y-auto p-6 
+                [&::-webkit-scrollbar]:w-2
+                [&::-webkit-scrollbar-track]:bg-light-bg-secondary
+                [&::-webkit-scrollbar-track]:dark:bg-dark-bg-secondary
+                [&::-webkit-scrollbar-thumb]:bg-light-border
+                [&::-webkit-scrollbar-thumb]:dark:bg-dark-border
+                [&::-webkit-scrollbar-thumb]:rounded-full
+                [&::-webkit-scrollbar-thumb]:border-2
+                [&::-webkit-scrollbar-thumb]:border-light-bg-primary
+                [&::-webkit-scrollbar-thumb]:dark:border-dark-bg-primary">
+                <div className="bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg border border-light-border dark:border-dark-border overflow-hidden">
+                  <div className="overflow-x-auto
+                    [&::-webkit-scrollbar]:h-2
+                    [&::-webkit-scrollbar-track]:bg-light-bg-secondary
+                    [&::-webkit-scrollbar-track]:dark:bg-dark-bg-secondary
+                    [&::-webkit-scrollbar-thumb]:bg-light-border
+                    [&::-webkit-scrollbar-thumb]:dark:bg-dark-border
+                    [&::-webkit-scrollbar-thumb]:rounded-full
+                    [&::-webkit-scrollbar-thumb]:border-2
+                    [&::-webkit-scrollbar-thumb]:border-light-bg-primary
+                    [&::-webkit-scrollbar-thumb]:dark:border-dark-bg-primary">
+                    <table className="w-full">
+                      <thead className="sticky top-0 bg-light-bg-primary dark:bg-dark-bg-primary">
+                        <tr className="border-b border-light-border dark:border-dark-border">
+                          <th className="px-6 py-3 text-left text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary">
+                            Document Name
+                          </th>
+                          <th className="px-6 py-3 text-left text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary">
+                            Type
+                          </th>
+                          <th className="px-6 py-3 text-left text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary">
+                            Chat Instance
+                          </th>
+                          <th className="px-6 py-3 text-left text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary">
+                            Upload Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary">
+                            Size
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentDocuments.map(doc => (
+                          <tr key={doc.id} className="hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary">
+                            <td className="px-6 py-4 text-sm text-light-text-primary dark:text-dark-text-primary">
+                              <div className="flex items-center gap-2">
+                                <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span>{doc.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-light-text-secondary dark:text-dark-text-secondary uppercase">
+                              {doc.type}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                              {doc.chatTitle}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                              {doc.uploadedAt.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                              {formatFileSize(doc.size)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Show</span>
-                  <select
-                    value={state.recordsPerPage}
-                    onChange={(e) => handleRecordsPerPageChange(Number(e.target.value))}
-                    className="px-2 py-1 text-sm border rounded-lg border-light-border dark:border-dark-border bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  >
-                    {[10, 25, 50, 100].map(value => (
-                      <option key={value} value={value}>{value}</option>
-                    ))}
-                  </select>
-                  <span className="text-sm text-light-text-secondary dark:text-dark-text-secondary">per page</span>
-                </div>
+              {/* Fixed Pagination at Bottom */}
+              <div className="flex-shrink-0 border-t border-light-border dark:border-dark-border bg-light-bg-primary dark:bg-dark-bg-primary p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Show</span>
+                    <select
+                      value={state.recordsPerPage}
+                      onChange={(e) => handleRecordsPerPageChange(Number(e.target.value))}
+                      className="px-2 py-1 text-sm border rounded-lg border-light-border dark:border-dark-border bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      {[10, 25, 50, 100].map(value => (
+                        <option key={value} value={value}>{value}</option>
+                      ))}
+                    </select>
+                    <span className="text-sm text-light-text-secondary dark:text-dark-text-secondary">per page</span>
+                  </div>
 
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                    {startIndex + 1}-{endIndex} of {state.totalDocuments}
-                  </span>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handlePageChange(state.currentPage - 1)}
-                      disabled={state.currentPage === 1}
-                      className="p-1 rounded-lg hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(state.currentPage + 1)}
-                      disabled={state.currentPage === totalPages}
-                      className="p-1 rounded-lg hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                      {startIndex + 1}-{endIndex} of {state.totalDocuments}
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handlePageChange(state.currentPage - 1)}
+                        disabled={state.currentPage === 1}
+                        className="p-1 rounded-lg hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handlePageChange(state.currentPage + 1)}
+                        disabled={state.currentPage === totalPages}
+                        className="p-1 rounded-lg hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
