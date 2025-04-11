@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 
 export const SignUpPage = () => {
   const [formData, setFormData] = useState({
@@ -24,7 +24,7 @@ export const SignUpPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
 
   // Password strength checker
   const checkPasswordStrength = (password: string) => {
@@ -104,9 +104,23 @@ export const SignUpPage = () => {
       setError('');
       setLoading(true);
       await signUp(formData.email, formData.password);
-      navigate('/');
+      navigate('/chat');
     } catch (err) {
       setError('Failed to create an account');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setError('');
+      setLoading(true);
+      await signInWithGoogle();
+      navigate('/chat');
+    } catch (err) {
+      setError('Failed to sign in with Google');
       console.error(err);
     } finally {
       setLoading(false);
@@ -342,7 +356,7 @@ export const SignUpPage = () => {
           {/* Social Login Buttons */}
           <div className="grid grid-cols-4 gap-3">
             {/* Google */}
-            <button className="p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg 
+            <button onClick={handleGoogleSignIn} className="p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg 
               hover:border-primary dark:hover:border-primary 
               transform transition-all duration-300 hover:scale-105 
               hover:shadow-md dark:hover:shadow-[0_4px_6px_-1px_rgba(255,255,255,0.1)]

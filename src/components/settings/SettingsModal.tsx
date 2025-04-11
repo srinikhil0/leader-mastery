@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { useAuth } from '../../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 interface User {
   name: string;
@@ -18,6 +20,17 @@ type SettingsTab = 'profile' | 'terms';
 const SettingsModal = ({ isOpen, onClose, user }: SettingsModalProps) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const { theme, setTheme } = useTheme();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Failed to log out:', error);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -167,7 +180,10 @@ const SettingsModal = ({ isOpen, onClose, user }: SettingsModalProps) => {
                     </div>
 
                     <div className="pt-4">
-                      <button className="w-full py-2 px-4 bg-error text-white rounded-lg hover:bg-error/90 transition-colors">
+                      <button 
+                        onClick={handleLogout}
+                        className="w-full py-2 px-4 bg-error text-white rounded-lg hover:bg-error/90 transition-colors"
+                      >
                         Logout
                       </button>
                     </div>
