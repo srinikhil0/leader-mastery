@@ -5,6 +5,42 @@ import MobileChatLayout from './MobileChatLayout';
 import SettingsModal from '../settings/SettingsModal';
 import { useAuth } from '../../hooks/useAuth';
 
+// Web Speech API type declarations
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
+}
+
+interface SpeechRecognitionEvent {
+  resultIndex: number;
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+      isFinal: boolean;
+    };
+    length: number;
+  };
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+}
+
+// Add window type declaration
+declare global {
+  interface Window {
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
+
 const ChatPage = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -21,10 +57,10 @@ const ChatPage = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
 
   // Input ref for focus management
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Suggested prompts for new chat
   const suggestedPrompts = [
@@ -71,6 +107,51 @@ const ChatPage = () => {
     };
     focusInput();
   }, []);  // Empty dependency array since we only want this on mount
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window) {
+      const recognition = new window.webkitSpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        // Update input with both final and interim results
+        setCurrentInput(prev => {
+          // Remove any previous interim results
+          const cleanPrev = prev.replace(/\[.*?\]/g, '');
+          // Add new interim results in brackets
+          return cleanPrev + finalTranscript + (interimTranscript ? ` [${interimTranscript}]` : '');
+        });
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+        // Clean up any remaining interim results
+        setCurrentInput(prev => prev.replace(/\[.*?\]/g, ''));
+      };
+
+      setRecognition(recognition);
+    }
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -147,30 +228,24 @@ const ChatPage = () => {
     setCitations([]);
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (file.type !== 'application/pdf') {
-      alert('Please upload a PDF file');
+  const handleMicClick = () => {
+    if (!recognition) {
+      console.error('Speech recognition not supported');
       return;
     }
 
-    // Validate file size (e.g., 10MB limit)
-    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
-    if (file.size > maxSize) {
-      alert('File size should be less than 10MB');
-      return;
+    if (isRecording) {
+      recognition.stop();
+      setIsRecording(false);
+    } else {
+      recognition.start();
+      setIsRecording(true);
     }
-
-    // Handle the file upload
-    console.log('File selected:', file.name);
-    // TODO: Implement actual file upload logic here
   };
 
   const handleUploadClick = () => {
-    fileInputRef.current?.click();
+    // Placeholder function to keep the UI
+    console.log('Upload functionality not implemented');
   };
 
   useEffect(() => {
@@ -399,7 +474,7 @@ const ChatPage = () => {
             <button 
               type="button"
               disabled={isGenerating}
-              onClick={() => setIsRecording(!isRecording)}
+              onClick={handleMicClick}
               className={`p-1 rounded transition-colors ${isRecording ? 'text-error' : 'text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary'} disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -500,15 +575,6 @@ const ChatPage = () => {
             )}
           </div>
         </div>
-
-        {/* Hidden file input */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          accept=".pdf"
-          className="hidden"
-        />
       </form>
 
       <p className="text-xs text-light-text-tertiary dark:text-dark-text-tertiary text-center mt-2">
