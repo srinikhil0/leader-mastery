@@ -85,7 +85,16 @@ const SettingsModal = ({ isOpen, onClose, user }: SettingsModalProps) => {
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto
+            [&::-webkit-scrollbar]:w-2
+            [&::-webkit-scrollbar-track]:bg-light-bg-secondary
+            [&::-webkit-scrollbar-track]:dark:bg-dark-bg-secondary
+            [&::-webkit-scrollbar-thumb]:bg-light-border
+            [&::-webkit-scrollbar-thumb]:dark:bg-dark-border
+            [&::-webkit-scrollbar-thumb]:rounded-full
+            [&::-webkit-scrollbar-thumb]:border-2
+            [&::-webkit-scrollbar-thumb]:border-light-bg-primary
+            [&::-webkit-scrollbar-thumb]:dark:border-dark-bg-primary">
             <div className="p-4 md:p-6 max-w-3xl mx-auto">
               {activeTab === 'profile' ? (
                 <div className="space-y-6">

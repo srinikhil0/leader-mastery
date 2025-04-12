@@ -24,6 +24,7 @@ const ChatPage = () => {
 
   // Input ref for focus management
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Suggested prompts for new chat
   const suggestedPrompts = [
@@ -61,6 +62,38 @@ const ChatPage = () => {
     }
   ];
 
+  // Add focus management with proper dependencies
+  useEffect(() => {
+    const focusInput = () => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    };
+    focusInput();
+  }, []);  // Empty dependency array since we only want this on mount
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    
+    // Set the input value
+    setCurrentInput(value);
+    
+    // Maintain cursor position
+    requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.selectionStart = cursorPosition;
+        inputRef.current.selectionEnd = cursorPosition;
+      }
+    });
+
+    // Adjust textarea height
+    if (e.target) {
+      e.target.style.height = 'auto';
+      e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
+    }
+  };
+
   // Handle message submission
   const handleSubmit = async (input: string) => {
     if (!input.trim() || isGenerating) return;
@@ -72,10 +105,11 @@ const ChatPage = () => {
       timestamp: new Date()
     };
 
+    // Batch state updates
     setMessages(prev => [...prev, newMessage]);
-    setCurrentInput('');
     setIsGenerating(true);
     setIsNewChat(false);
+    setCurrentInput('');
 
     // Simulate AI response
     setTimeout(() => {
@@ -87,7 +121,12 @@ const ChatPage = () => {
       };
       setMessages(prev => [...prev, aiResponse]);
       setIsGenerating(false);
-      inputRef.current?.focus();
+      // Focus after response
+      requestAnimationFrame(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      });
     }, 1000);
   };
 
@@ -106,6 +145,32 @@ const ChatPage = () => {
     setMessages([]); // In real app, load conversation messages
     setConversations(prev => prev.map(c => c.id === conv.id ? {...c, active: true} : {...c, active: false}));
     setCitations([]);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+      alert('Please upload a PDF file');
+      return;
+    }
+
+    // Validate file size (e.g., 10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxSize) {
+      alert('File size should be less than 10MB');
+      return;
+    }
+
+    // Handle the file upload
+    console.log('File selected:', file.name);
+    // TODO: Implement actual file upload logic here
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
   };
 
   useEffect(() => {
@@ -307,23 +372,19 @@ const ChatPage = () => {
           <textarea
             ref={inputRef}
             value={currentInput}
-            onChange={(e) => setCurrentInput(e.target.value)}
+            onChange={handleInputChange}
             disabled={isGenerating}
             placeholder={isGenerating ? "AI is generating..." : "Ask me anything..."}
             rows={1}
             style={{ resize: 'none' }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = 'auto';
-              target.style.height = `${Math.min(target.scrollHeight, 200)}px`; // Increased max height to 200px
-            }}
-            className="w-full px-4 py-3 pr-20 rounded-lg border border-light-border dark:border-dark-border 
+            className="w-full px-4 py-2 pr-20 rounded-lg border border-light-border dark:border-dark-border 
               bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary 
               focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 
-              transition-all duration-300 text-base placeholder:text-light-text-tertiary 
-              dark:placeholder:text-dark-text-tertiary disabled:bg-light-bg-secondary 
-              dark:disabled:bg-dark-bg-secondary disabled:cursor-not-allowed
-              min-h-[44px] max-h-[200px] overflow-y-auto leading-6"
+              text-base placeholder:text-light-text-tertiary dark:placeholder:text-dark-text-tertiary
+              min-h-[44px] max-h-[200px] overflow-y-auto leading-6
+              text-left direction-ltr"
+            dir="ltr"
+            autoFocus
           />
           
           {/* Character count */}
@@ -360,7 +421,7 @@ const ChatPage = () => {
         {/* Action Buttons */}
         <div className="flex items-center gap-3 px-1">
 
-          {/* Attach Button */}{/* Attach Button with Dropdown */}
+          {/* Attach Button with Dropdown */}
           <div className="relative">
             <button
               type="button"
@@ -378,19 +439,22 @@ const ChatPage = () => {
                   <svg className="w-4 h-4 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
-                  From Drive
-                </button>
-                <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary flex items-center gap-2">
-                  <svg className="w-4 h-4 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  Upload File
+                  Connect to Drive
                 </button>
                 <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary flex items-center gap-2">
                   <svg className="w-4 h-4 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
                   </svg>
-                  Connect Database
+                  Connect to Database
+                </button>
+                <button 
+                  onClick={handleUploadClick}
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Upload from device
                 </button>
               </div>
             )}
@@ -436,6 +500,15 @@ const ChatPage = () => {
             )}
           </div>
         </div>
+
+        {/* Hidden file input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          accept=".pdf"
+          className="hidden"
+        />
       </form>
 
       <p className="text-xs text-light-text-tertiary dark:text-dark-text-tertiary text-center mt-2">
