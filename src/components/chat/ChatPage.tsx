@@ -73,9 +73,14 @@ const ChatPage = () => {
   const [subExperts, setSubExperts] = useState<string[]>([]);
   const [selectedExpert, setSelectedExpert] = useState<string | null>(null);
   const [selectedSubExpert, setSelectedSubExpert] = useState<string | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [isCitationsVisible, setIsCitationsVisible] = useState(false);
 
   // Input ref for focus management
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Add ref for chat area
+  const chatAreaRef = useRef<HTMLDivElement>(null);
 
   // Suggested prompts for new chat
   const suggestedPrompts = [
@@ -256,7 +261,7 @@ const ChatPage = () => {
     };
   }, []);
 
-  // Update expert selection to initialize context
+  // Update expert selection to initialize context without validation
   const handleExpertSelect = async (expert: string) => {
     console.log('handleExpertSelect called with:', expert);
 
@@ -286,17 +291,20 @@ const ChatPage = () => {
       setSelectedSubExpert(null);
       setSelectedPersona(newPersona);
       setIsPersonaModalOpen(false);
-      setIsNewChat(false);
 
-      // Add a welcome message from the expert
-      const expertWelcomeMessage: Message = {
-        id: Date.now().toString(),
-        type: 'ai',
-        content: `I am your ${normalizedExpert} expert. How can I assist you today?`,
-        timestamp: new Date(),
-        expert: normalizedExpert
-      };
-      setMessages(prev => [...prev, expertWelcomeMessage]);
+      // Only show welcome message if it's a new chat
+      if (isNewChat) {
+        setIsNewChat(false);
+        // Add a welcome message from the expert
+        const expertWelcomeMessage: Message = {
+          id: Date.now().toString(),
+          type: 'ai',
+          content: `I am your ${normalizedExpert} expert. How can I assist you today?`,
+          timestamp: new Date(),
+          expert: normalizedExpert
+        };
+        setMessages(prev => [...prev, expertWelcomeMessage]);
+      }
       
       console.log('Expert selection completed:', { 
         expert: normalizedExpert, 
@@ -304,13 +312,6 @@ const ChatPage = () => {
       });
     } catch (error) {
       console.error('Error in expert selection:', error);
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        type: 'system',
-        content: 'Failed to switch expert. Please try again.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsGenerating(false);
     }
@@ -379,38 +380,25 @@ const ChatPage = () => {
   const handleSubmit = async (input: string) => {
     if (!input.trim() && !attachedFiles.length) return;
 
-    if (!selectedExpert) {
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        content: 'Please select an expert before sending a message. The expert will determine how your question is answered.',
-        type: 'system',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-      return;
-    }
-
     setIsNewChat(false);
     setIsGenerating(true);
-    
-    // Add user message to chat with expert context
+
+    // Add user message to chat with expert context and attachments
     const userMessage: Message = {
       id: Date.now().toString(),
       content: input.trim(),
       type: 'user',
       timestamp: new Date(),
-      expert: selectedExpert,
+      expert: selectedExpert || undefined,
       attachments: attachedFiles.map(file => ({
-        type: file.type || 'application/pdf',
+        type: file.type,
         name: file.name,
         size: file.size
       }))
     };
-    setMessages(prev => [...prev, userMessage]);
-    setCurrentInput('');
 
     try {
-      // Handle file uploads first
+      // Handle file uploads first if there are any
       if (attachedFiles.length > 0) {
         for (const file of attachedFiles) {
           const formData = new FormData();
@@ -427,6 +415,8 @@ const ChatPage = () => {
         }
       }
 
+      setMessages(prev => [...prev, userMessage]);
+
       // Send message with expert context
       const response = await fetch('/ask-question', {
         method: 'POST',
@@ -435,9 +425,10 @@ const ChatPage = () => {
         },
         body: JSON.stringify({
           question: input.trim(),
-          expert: selectedExpert,
+          expert: selectedExpert || "",
           sub_expert: selectedSubExpert || "",
-          session_id: Date.now().toString() // You might want to use a proper session ID
+          session_id: Date.now().toString(),
+          attachments: attachedFiles.map(file => file.name) // Include file names in the request
         })
       });
 
@@ -450,10 +441,12 @@ const ChatPage = () => {
       // Add AI response to chat
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.response,
+        content: attachedFiles.length > 0 
+          ? `${data.response.split('\n\n')[0]}\n\nFiles processed: ${attachedFiles.map(file => file.name).join(', ')}\n\n${data.response.split('\n\n')[1]}`
+          : data.response,
         type: 'ai',
         timestamp: new Date(),
-        expert: selectedExpert
+        expert: selectedExpert || undefined
       };
       setMessages(prev => [...prev, aiMessage]);
 
@@ -469,6 +462,9 @@ const ChatPage = () => {
           timestamp: new Date()
         })));
       }
+
+      // Clear attached files after successful submission
+      setAttachedFiles([]);
     } catch (error) {
       console.error('Error:', error);
       const errorMessage: Message = {
@@ -478,9 +474,9 @@ const ChatPage = () => {
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
+      throw error; // Re-throw to prevent input clearing
     } finally {
       setIsGenerating(false);
-      setAttachedFiles([]);
         if (inputRef.current) {
           inputRef.current.focus();
         }
@@ -563,7 +559,9 @@ const ChatPage = () => {
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024); // Use lg breakpoint instead of md
+      const isMobileView = window.innerWidth < 1024; // Use lg breakpoint
+      setIsMobile(isMobileView);
+      setIsSidebarCollapsed(isMobileView); // Collapse sidebar only on mobile
     };
 
     // Set initial value
@@ -575,6 +573,18 @@ const ChatPage = () => {
     // Cleanup
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Add scroll to bottom effect
+  const scrollToBottom = () => {
+    if (chatAreaRef.current) {
+      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+    }
+  };
+
+  // Add effect to scroll when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Left Sidebar Component
   const LeftSidebar = () => (
@@ -668,14 +678,16 @@ const ChatPage = () => {
 
   // Right Sidebar Component for Citations
   const RightSidebar = () => (
-    <div className={`fixed right-0 top-0 w-80 h-screen bg-light-bg-primary dark:bg-dark-bg-primary border-l border-light-border dark:border-dark-border shadow-lg
-      transform transition-transform duration-300 ease-in-out
-      ${citations.length > 0 ? 'translate-x-0' : 'translate-x-full'}`}
-    >
+    <div className={`fixed right-0 top-0 w-80 h-screen bg-light-bg-primary dark:bg-dark-bg-primary 
+      transform transition-all duration-300 ease-out shadow-lg border-l border-light-border dark:border-dark-border
+      ${isCitationsVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}>
+      <div className="h-full flex flex-col">
       <div className="p-4 border-b border-light-border dark:border-dark-border flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">Citations</h2>
+          <h2 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">
+            Citations ({citations.length})
+          </h2>
         <button 
-          onClick={() => setCitations([])} 
+            onClick={() => setIsCitationsVisible(false)} 
           className="text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary transition-colors"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -683,6 +695,7 @@ const ChatPage = () => {
           </svg>
         </button>
       </div>
+        {citations.length > 0 && (
       <div className="p-4 space-y-4 overflow-y-auto h-[calc(100vh-65px)]">
         {citations.map(citation => (
           <div key={citation.id} className="bg-light-bg-secondary dark:bg-dark-bg-secondary p-4 rounded-lg">
@@ -704,6 +717,8 @@ const ChatPage = () => {
             )}
           </div>
         ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -780,11 +795,11 @@ const ChatPage = () => {
                 className="text-sm text-primary hover:text-primary/80 transition-colors"
               >
                 Clear selection
-              </button>
-            </div>
+            </button>
+          </div>
             <div className="grid grid-cols-2 gap-4">
               {subExperts.map(subExpert => (
-                <button 
+            <button
                   key={subExpert}
                   onClick={() => handleSubExpertSelect(subExpert)}
                   className={`bg-light-bg-primary dark:bg-dark-bg-primary p-3 rounded-lg border-2
@@ -796,7 +811,7 @@ const ChatPage = () => {
                   <span className="text-light-text-primary dark:text-dark-text-primary group-hover:text-primary">
                     {subExpert}
                   </span>
-                </button>
+            </button>
               ))}
               </div>
               </div>
@@ -839,6 +854,143 @@ const ChatPage = () => {
     </div>
   );
 
+  // Add handler functions for message interactions
+  const handleFeedback = (messageId: string, isPositive: boolean) => {
+    console.log(`Feedback for message ${messageId}: ${isPositive ? 'positive' : 'negative'}`);
+    // Here you can implement the API call to save feedback
+  };
+
+  const handleCopyMessage = (messageId: string, content: string) => {
+    navigator.clipboard.writeText(content)
+      .then(() => {
+        setCopiedMessageId(messageId);
+        setTimeout(() => {
+          setCopiedMessageId(null);
+        }, 2000); // Reset after 2 seconds
+      })
+      .catch(err => {
+        console.error('Failed to copy message:', err);
+      });
+  };
+
+  const handleShowCitations = () => {
+    if (citations.length > 0) {
+      setIsCitationsVisible(!isCitationsVisible); // Toggle visibility
+    }
+  };
+
+  // Message Component
+  const MessageComponent = ({ message }: { message: Message }) => (
+    <div
+      key={message.id}
+      className={`flex flex-col ${message.type === 'user' ? 'items-end' : 'items-start'}`}
+    >
+      {/* Display attachments if present */}
+      {message.attachments && message.attachments.length > 0 && (
+        <div className="w-full max-w-[300px] mb-2 space-y-2">
+          {message.attachments.map((attachment, index) => (
+            <div 
+              key={index}
+              className="flex items-center gap-2 p-3 rounded-lg bg-light-bg-secondary dark:bg-dark-bg-secondary border border-light-border dark:border-dark-border"
+            >
+              <div className="p-2 rounded-lg bg-primary/10">
+                <svg className="w-6 h-6 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M13,13V18H15V13H13M9,13V18H11V13H9Z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-light-text-primary dark:text-dark-text-primary truncate">
+                  {attachment.name}
+                </p>
+                <p className="text-xs text-light-text-tertiary dark:text-dark-text-tertiary">
+                  {(attachment.size / 1024).toFixed(1)} KB • PDF
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="max-w-[50%]">
+        <div
+          className={`rounded-lg p-4 whitespace-pre-wrap break-words ${
+            message.type === 'user'
+              ? 'bg-gradient-to-br from-primary to-primary/90 text-white shadow-sm'
+              : message.type === 'system'
+              ? 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary text-light-text-secondary dark:text-dark-text-secondary border border-light-border dark:border-dark-border'
+              : 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary'
+          }`}
+        >
+          {message.content}
+        </div>
+      
+        {/* Action buttons for AI messages */}
+        {message.type === 'ai' && (
+          <div className="flex items-center space-x-3 mt-2 text-light-text-secondary dark:text-dark-text-secondary">
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handleFeedback(message.id, true)}
+                className="p-1.5 rounded-full hover:-translate-y-0.5 transition-transform duration-200 ease-in-out"
+                title="Helpful"
+              >
+                <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M2 20h2c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1H2v11zm19.83-7.12c.11-.25.17-.52.17-.8V11c0-1.1-.9-2-2-2h-5.5l.92-4.65c.05-.22.02-.46-.08-.66-.23-.45-.52-.86-.88-1.22L14 2 7.59 8.41C7.21 8.79 7 9.3 7 9.83v7.84C7 18.95 8.05 20 9.34 20h8.11c.7 0 1.36-.37 1.72-.97l2.66-6.15z"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => handleFeedback(message.id, false)}
+                className="p-1.5 rounded-full hover:-translate-y-0.5 transition-transform duration-200 ease-in-out"
+                title="Not helpful"
+              >
+                <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M22 4h-2c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1h2V4zM2.17 11.12c-.11.25-.17.52-.17.8V13c0 1.1.9 2 2 2h5.5l-.92 4.65c-.05.22-.02.46.08.66.23.45.52.86.88 1.22L10 22l6.41-6.41c.38-.38.59-.89.59-1.42V6.34C17 5.05 15.95 4 14.66 4h-8.1c-.71 0-1.36.37-1.72.97l-2.67 6.15z"/>
+                </svg>
+              </button>
+            </div>
+            <div className="w-px h-4 bg-light-border dark:bg-dark-border" />
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handleCopyMessage(message.id, message.content)}
+                className="p-1.5 rounded-full hover:-translate-y-0.5 transition-transform duration-200 ease-in-out"
+                title={copiedMessageId === message.id ? "Copied!" : "Copy message"}
+              >
+                <div className="relative">
+                  <svg 
+                    className={`w-4 h-4 absolute transition-all duration-300 ease-in-out ${
+                      copiedMessageId === message.id ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
+                    }`} 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  </svg>
+                  <svg 
+                    className={`w-4 h-4 transition-all duration-300 ease-in-out ${
+                      copiedMessageId === message.id ? 'opacity-0 scale-50' : 'opacity-100 scale-100'
+                    }`} 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                  </svg>
+                </div>
+              </button>
+              <button
+                onClick={() => handleShowCitations()}
+                className="p-1.5 rounded-full hover:-translate-y-0.5 transition-transform duration-200 ease-in-out"
+                title={isCitationsVisible ? "Hide citations" : "Show citations"}
+              >
+                <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   // If mobile, use mobile layout
   if (isMobile) {
     return (
@@ -848,7 +1000,6 @@ const ChatPage = () => {
         citations={citations}
         setMessages={setMessages}
         setConversations={setConversations}
-        setCitations={setCitations}
         currentInput={currentInput}
         setCurrentInput={setCurrentInput}
         isNewChat={isNewChat}
@@ -864,7 +1015,6 @@ const ChatPage = () => {
         isSourceMenuOpen={isSourceMenuOpen}
         setIsSourceMenuOpen={setIsSourceMenuOpen}
         isRecording={isRecording}
-        setIsRecording={setIsRecording}
         inputRef={inputRef as RefObject<HTMLTextAreaElement>}
         onFileUpload={handleFileUpload}
         onPersonaSelect={(persona) => {
@@ -884,6 +1034,8 @@ const ChatPage = () => {
         selectedExpert={selectedExpert}
         selectedSubExpert={selectedSubExpert}
         setSelectedSubExpert={setSelectedSubExpert}
+        onSubmit={handleSubmit}
+        onMicClick={handleMicClick}
       />
     );
   }
@@ -893,8 +1045,8 @@ const ChatPage = () => {
     <div className="fixed inset-0 flex w-full h-full bg-light-bg-tertiary dark:bg-dark-bg-tertiary overflow-hidden">
       <LeftSidebar />
       
-      <main className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out
-        ${citations.length > 0 ? 'mr-80' : 'mr-0'}`}>
+      <main className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-out
+        ${isCitationsVisible ? 'mr-80' : 'mr-0'}`}>
         {isNewChat ? (
           <>
             <NewChatWelcome />
@@ -922,48 +1074,9 @@ const ChatPage = () => {
           </>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <div ref={chatAreaRef} className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
               {messages.map(message => (
-                <div
-                  key={message.id}
-                  className={`flex flex-col ${message.type === 'user' ? 'items-end' : 'items-start'}`}
-                >
-                  {message.attachments && message.attachments.length > 0 && (
-                    <div className="mb-2 max-w-[70%]">
-                      {message.attachments.map((file, index) => (
-                        <div 
-                          key={index} 
-                          className="bg-primary/10 dark:bg-primary rounded-lg p-3 mb-2 last:mb-0"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="bg-rose-500/10 rounded-lg p-2">
-                              <svg className="w-6 h-6 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <div className="font-medium text-light-text-primary dark:text-white">{file.name}</div>
-                              <div className="text-sm text-light-text-secondary dark:text-dark-text-secondary">PDF</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {message.content && (
-                    <div
-                      className={`max-w-[70%] rounded-lg p-4 whitespace-pre-wrap break-words ${
-                        message.type === 'user'
-                          ? 'bg-gradient-to-br from-primary to-primary/90 text-white shadow-sm'
-                          : message.type === 'system'
-                          ? 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary text-light-text-secondary dark:text-dark-text-secondary border border-light-border dark:border-dark-border'
-                          : 'text-light-text-primary dark:text-dark-text-primary'
-                      }`}
-                    >
-                      {message.content}
-                    </div>
-                  )}
-                </div>
+                <MessageComponent key={message.id} message={message} />
               ))}
             </div>
             <ChatInput

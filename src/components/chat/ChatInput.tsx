@@ -1,4 +1,4 @@
-import React, { RefObject, Dispatch, SetStateAction, useRef } from 'react';
+import React, { RefObject, Dispatch, SetStateAction, useRef, FormEvent, KeyboardEvent } from 'react';
 import { Persona } from './types';
 
 interface ChatInputProps {
@@ -86,21 +86,36 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (isGenerating) return;
+
+    const trimmedInput = currentInput.trim();
+    if (!trimmedInput && !attachedFiles.length) return;
+
+    try {
+      await onSubmit(trimmedInput);
+      // Only clear input and reset height if submission was successful
+      setCurrentInput('');
+      if (inputRef.current) {
+        inputRef.current.style.height = 'auto';
+      }
+    } catch (error) {
+      console.error('Error submitting message:', error);
+      // Do not clear input on error
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (currentInput.trim() && !isGenerating) {
-        onSubmit(currentInput);
-      }
+      handleSubmit(e as unknown as FormEvent);
     }
   };
 
   return (
     <div className="border-t border-light-border dark:border-dark-border px-4 py-2">
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(currentInput);
-      }} className="space-y-2">
+      <form onSubmit={handleSubmit} className="space-y-2">
         {attachedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {attachedFiles.map((file, index) => (
@@ -161,15 +176,31 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
             </button>
-            <button
-              type="submit"
-              disabled={!currentInput.trim() || isGenerating}
-              className="p-1 text-primary hover:text-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                disabled={isGenerating}
+                className={`p-2 rounded-lg transition-colors flex items-center justify-center
+                  ${(!currentInput.trim() && !attachedFiles.length) || isGenerating
+                    ? 'text-light-text-tertiary dark:text-dark-text-tertiary'
+                    : 'text-primary hover:text-primary/80'
+                  }`}
+              >
+                {isGenerating ? (
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
+                  </svg>
+                )}
+              </button>
+              {isRecording && (
+                <div className="text-red-500 animate-pulse">Recording...</div>
+              )}
+            </div>
           </div>
         </div>
 

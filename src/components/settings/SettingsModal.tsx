@@ -193,19 +193,19 @@ const SettingsModal = ({ isOpen, onClose, user }: SettingsModalProps) => {
                 <div className="space-y-6">
                   <h3 className="text-xl font-semibold text-light-text-primary dark:text-dark-text-primary md:block hidden">Terms & Conditions</h3>
                   
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <h4>Terms of Service</h4>
-                    <p>
+                  <div className="space-y-6 text-light-text-primary dark:text-dark-text-primary">
+                    <h4 className="text-lg font-semibold">Terms of Service</h4>
+                    <p className="text-light-text-secondary dark:text-dark-text-secondary">
                       By accessing and using this application, you agree to comply with and be bound by these terms and conditions.
                     </p>
                     
-                    <h4 className="mt-6">Privacy Policy</h4>
-                    <p>
+                    <h4 className="text-lg font-semibold">Privacy Policy</h4>
+                    <p className="text-light-text-secondary dark:text-dark-text-secondary">
                       We respect your privacy and are committed to protecting your personal information. Our privacy policy outlines how we collect, use, and safeguard your data.
                     </p>
                     
-                    <h4 className="mt-6">Cookie Policy</h4>
-                    <p>
+                    <h4 className="text-lg font-semibold">Cookie Policy</h4>
+                    <p className="text-light-text-secondary dark:text-dark-text-secondary">
                       This application uses cookies to enhance your browsing experience. By continuing to use this application, you consent to our use of cookies in accordance with our cookie policy.
                     </p>
                   </div>
