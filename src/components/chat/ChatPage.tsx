@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Message, Citation, Conversation, Persona } from './types';
 import MobileChatLayout from './MobileChatLayout';
@@ -60,6 +60,7 @@ const ChatPage = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
   // Input ref for focus management
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -157,7 +158,8 @@ const ChatPage = () => {
 
   // Handle message submission
   const handleSubmit = async (input: string) => {
-    if (!input.trim() || isGenerating) return;
+    if (!input.trim() && !attachedFiles.length) return;
+    if (isGenerating) return;
 
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -166,8 +168,20 @@ const ChatPage = () => {
       timestamp: new Date()
     };
 
-    // Batch state updates
-    setMessages(prev => [...prev, newMessage]);
+    // If there's an attached file, add it to the message
+    if (attachedFiles.length > 0) {
+      const fileMessages: Message[] = attachedFiles.map(file => ({
+        id: Date.now().toString(),
+        content: `File uploaded: ${file.name}`,
+        type: 'system',
+        timestamp: new Date()
+      }));
+      setMessages(prev => [...prev, ...fileMessages, newMessage]);
+      setAttachedFiles([]); // Clear the attached files
+    } else {
+      setMessages(prev => [...prev, newMessage]);
+    }
+
     setIsGenerating(true);
     setIsNewChat(false);
     setCurrentInput('');
@@ -241,17 +255,19 @@ const ChatPage = () => {
         throw new Error('File size exceeds 10MB limit.');
       }
 
-      // Add system message for file upload
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        content: `File uploaded: ${file.name}`,
-        type: 'system',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, newMessage]);
-      
-      // Here you would typically upload the file to your server
-      console.log('Uploading file:', file.name);
+      // Check if maximum files limit reached
+      if (attachedFiles.length >= 5) {
+        throw new Error('Maximum 5 files can be attached at once.');
+      }
+
+      // Store the file in state
+      setAttachedFiles(prev => [...prev, file]);
+      // Close the attach menu dropdown
+      setIsAttachMenuOpen(false);
+      // Focus the input without setting any text
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
       
     } catch (error) {
       console.error('Upload error:', error);
@@ -266,9 +282,14 @@ const ChatPage = () => {
     }
   };
 
+  const handleRemoveFile = (fileIndex: number) => {
+    setAttachedFiles(prev => prev.filter((_, index) => index !== fileIndex));
+  };
+
   const handlePersonaSelect = (persona: Persona) => {
     setSelectedPersona(persona);
     setIsPersonaModalOpen(false);
+    setIsNewChat(false); // Ensure we're showing messages view
     
     // Add system message for persona selection
     const newMessage: Message = {
@@ -282,26 +303,17 @@ const ChatPage = () => {
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768); // Use standard md breakpoint
+      setIsMobile(window.innerWidth < 1024); // Use lg breakpoint instead of md
     };
 
     // Set initial value
     handleResize();
 
-    // Add event listener with debounce for better performance
-    let timeoutId: NodeJS.Timeout;
-    const debouncedResize = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(handleResize, 100);
-    };
-
-    window.addEventListener('resize', debouncedResize);
+    // Add event listener
+    window.addEventListener('resize', handleResize);
 
     // Cleanup
-    return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener('resize', debouncedResize);
-    };
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Left Sidebar Component
@@ -527,10 +539,13 @@ const ChatPage = () => {
         setIsSourceMenuOpen={setIsSourceMenuOpen}
         isRecording={isRecording}
         setIsRecording={setIsRecording}
-        inputRef={inputRef as React.RefObject<HTMLTextAreaElement>}
+        inputRef={inputRef as RefObject<HTMLTextAreaElement>}
         onFileUpload={handleFileUpload}
         onPersonaSelect={handlePersonaSelect}
         selectedPersona={selectedPersona}
+        attachedFiles={attachedFiles}
+        onRemoveFile={handleRemoveFile}
+        setAttachedFiles={setAttachedFiles}
       />
     );
   }
@@ -559,6 +574,8 @@ const ChatPage = () => {
               isSourceMenuOpen={isSourceMenuOpen}
               isAttachMenuOpen={isAttachMenuOpen}
               onFileUpload={handleFileUpload}
+              attachedFiles={attachedFiles}
+              onRemoveFile={handleRemoveFile}
             />
           </>
         ) : (
@@ -597,6 +614,8 @@ const ChatPage = () => {
               isSourceMenuOpen={isSourceMenuOpen}
               isAttachMenuOpen={isAttachMenuOpen}
               onFileUpload={handleFileUpload}
+              attachedFiles={attachedFiles}
+              onRemoveFile={handleRemoveFile}
             />
           </>
         )}

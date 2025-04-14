@@ -14,6 +14,8 @@ interface ChatInputProps {
   isSourceMenuOpen: boolean;
   isAttachMenuOpen: boolean;
   onFileUpload: (file: File) => void;
+  attachedFiles: File[];
+  onRemoveFile: (fileIndex: number) => void;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -29,14 +31,18 @@ const ChatInput: React.FC<ChatInputProps> = ({
   onSourceClick,
   isSourceMenuOpen,
   isAttachMenuOpen,
-  onFileUpload
+  onFileUpload,
+  attachedFiles,
+  onRemoveFile
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onFileUpload(file);
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(file => {
+        onFileUpload(file);
+      });
     }
   };
 
@@ -73,6 +79,27 @@ const ChatInput: React.FC<ChatInputProps> = ({
         e.preventDefault();
         onSubmit(currentInput);
       }} className="space-y-2">
+        {attachedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {attachedFiles.map((file, index) => (
+              <div key={index} className="inline-flex items-center gap-2 px-3 py-1.5 bg-light-bg-secondary dark:bg-dark-bg-secondary rounded-lg max-w-[300px]">
+                <svg className="w-4 h-4 shrink-0 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                <span className="text-sm text-light-text-primary dark:text-dark-text-primary truncate">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => onRemoveFile(index)}
+                  className="p-0.5 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-full text-light-text-secondary dark:text-dark-text-secondary"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="relative">
           <textarea
             ref={inputRef}
@@ -158,6 +185,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
               onChange={handleFileSelect}
               className="hidden"
               accept=".pdf,.doc,.docx,.txt"
+              multiple
             />
           </div>
 

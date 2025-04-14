@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useState, useRef } from 'react';
+import { Dispatch, SetStateAction, useState, useRef, RefObject } from 'react';
 import { Message, Conversation, Citation, Persona } from './types';
 import { useNavigate } from 'react-router-dom';
 import SettingsModal from '../settings/SettingsModal';
@@ -12,7 +12,7 @@ interface MobileChatLayoutProps {
   setConversations: Dispatch<SetStateAction<Conversation[]>>;
   setCitations: (citations: Citation[]) => void;
   currentInput: string;
-  setCurrentInput: (input: string) => void;
+  setCurrentInput: Dispatch<SetStateAction<string>>;
   isNewChat: boolean;
   setIsNewChat: Dispatch<SetStateAction<boolean>>;
   isGenerating: boolean;
@@ -26,11 +26,14 @@ interface MobileChatLayoutProps {
   isSourceMenuOpen: boolean;
   setIsSourceMenuOpen: Dispatch<SetStateAction<boolean>>;
   isRecording: boolean;
-  setIsRecording: (isRecording: boolean) => void;
-  inputRef: React.RefObject<HTMLTextAreaElement>;
+  setIsRecording: Dispatch<SetStateAction<boolean>>;
+  inputRef: RefObject<HTMLTextAreaElement>;
   onFileUpload: (file: File) => void;
   onPersonaSelect: (persona: Persona) => void;
   selectedPersona: Persona | null;
+  attachedFiles: File[];
+  onRemoveFile: (fileIndex: number) => void;
+  setAttachedFiles: Dispatch<SetStateAction<File[]>>;
 }
 
 export default function MobileChatLayout({
@@ -59,7 +62,10 @@ export default function MobileChatLayout({
   inputRef,
   onFileUpload,
   onPersonaSelect,
-  selectedPersona
+  selectedPersona,
+  attachedFiles,
+  onRemoveFile,
+  setAttachedFiles
 }: MobileChatLayoutProps) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -67,9 +73,11 @@ export default function MobileChatLayout({
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onFileUpload(file);
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(file => {
+        onFileUpload(file);
+      });
     }
   };
 
@@ -111,6 +119,7 @@ export default function MobileChatLayout({
           </div>
         ) : (
           <div className="h-full overflow-y-auto px-4 py-6 space-y-6">
+            {/* Display attached files at the bottom of the chat */}
             {messages.map(message => (
               <div
                 key={message.id}
@@ -119,6 +128,8 @@ export default function MobileChatLayout({
                 <div className={`max-w-[85%] rounded-lg p-3 ${
                   message.type === 'user'
                     ? 'bg-primary text-white'
+                    : message.type === 'system'
+                    ? 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary text-light-text-secondary dark:text-dark-text-secondary border border-light-border dark:border-dark-border'
                     : 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary'
                 }`}>
                   {message.content}
@@ -180,8 +191,23 @@ export default function MobileChatLayout({
                 type: 'user',
                 timestamp: new Date()
               };
-              setMessages((prev: Message[]) => [...prev, newMessage]);
+
+              // If there are attached files, add them as system messages first
+              if (attachedFiles.length > 0) {
+                const fileMessages: Message[] = attachedFiles.map(file => ({
+                  id: Date.now().toString(),
+                  content: `File uploaded: ${file.name}`,
+                  type: 'system',
+                  timestamp: new Date()
+                }));
+                setMessages(prev => [...prev, ...fileMessages, newMessage]);
+              } else {
+                setMessages(prev => [...prev, newMessage]);
+              }
+
               setCurrentInput('');
+              // Clear attached files after sending
+              setAttachedFiles([]);
 
               // Simulate AI response
               setTimeout(() => {
@@ -199,6 +225,29 @@ export default function MobileChatLayout({
           }}
           className="space-y-3"
         >
+          {/* Display attached files above the input */}
+          {attachedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {attachedFiles.map((file, index) => (
+                <div key={index} className="inline-flex items-center gap-2 px-3 py-1.5 bg-light-bg-secondary dark:bg-dark-bg-secondary rounded-lg max-w-[300px]">
+                  <svg className="w-4 h-4 shrink-0 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                  <span className="text-sm text-light-text-primary dark:text-dark-text-primary truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveFile(index)}
+                    className="p-0.5 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-full text-light-text-secondary dark:text-dark-text-secondary"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="relative">
             <textarea
               ref={inputRef}
@@ -286,6 +335,7 @@ export default function MobileChatLayout({
                   onChange={handleFileSelect}
                   className="hidden"
                   accept=".pdf,.doc,.docx,.txt"
+                  multiple
                 />
               </div>
               <button type="button" className="text-light-text-secondary dark:text-dark-text-secondary p-1.5">
