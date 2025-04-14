@@ -171,7 +171,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
               <span>Attach</span>
             </button>
             {isAttachMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-10">
+              <div data-attach-menu className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-10">
                 <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">
                   Connect to Drive
                 </button>
@@ -211,11 +211,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
             onClick={onPersonaClick}
             className="flex items-center gap-1 px-2.5 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-sm"
           >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
             {selectedPersona ? (
-              <>
-                <span>{selectedPersona.icon}</span>
-                <span>{selectedPersona.name}</span>
-              </>
+              <span>{selectedPersona.name}</span>
             ) : (
               <span>Persona</span>
             )}
@@ -227,13 +227,16 @@ const ChatInput: React.FC<ChatInputProps> = ({
               onClick={onSourceClick}
               className="flex items-center gap-1 px-2.5 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-sm"
             >
-              <span>{selectedSource ? `Source: ${selectedSource.charAt(0).toUpperCase() + selectedSource.slice(1)}` : 'Source'}</span>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <span>{selectedSource ? `${selectedSource.charAt(0).toUpperCase() + selectedSource.slice(1)}` : 'Source'}</span>
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
             {isSourceMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-1 w-32 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1">
+              <div data-source-menu className="absolute bottom-full left-0 mb-1 w-32 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1">
                 <button 
                   onClick={() => onSourceSelect('internal')}
                   className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"

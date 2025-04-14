@@ -112,6 +112,44 @@ const ChatPage = () => {
     focusInput();
   }, []);  // Empty dependency array since we only want this on mount
 
+  // Handle Escape key and click outside for menus
+  useEffect(() => {
+    const handleEscKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsAttachMenuOpen(false);
+        setIsPersonaModalOpen(false);
+        setIsSourceMenuOpen(false);
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // Close attach menu if clicking outside
+      if (isAttachMenuOpen && !target.closest('[data-attach-menu]')) {
+        setIsAttachMenuOpen(false);
+      }
+      
+      // Close source menu if clicking outside
+      if (isSourceMenuOpen && !target.closest('[data-source-menu]')) {
+        setIsSourceMenuOpen(false);
+      }
+      
+      // Close persona modal if clicking outside
+      if (isPersonaModalOpen && !target.closest('[data-persona-modal]')) {
+        setIsPersonaModalOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    document.addEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isAttachMenuOpen, isPersonaModalOpen, isSourceMenuOpen]);
+
   // Initialize speech recognition
   useEffect(() => {
     if ('webkitSpeechRecognition' in window) {
@@ -291,7 +329,7 @@ const ChatPage = () => {
   const handlePersonaSelect = (persona: Persona) => {
     setSelectedPersona(persona);
     setIsPersonaModalOpen(false);
-    setIsNewChat(false); // Ensure we're showing messages view
+    setIsNewChat(false);
   };
 
   // Add source selection handler
