@@ -256,75 +256,21 @@ const ChatPage = () => {
     };
   }, []);
 
-  // Add function to initialize expert context
-  const initializeExpertContext = async (expert: string, subExpert: string | null) => {
-    console.log('Initializing expert context:', { expert, subExpert }); // Debug log
-    try {
-      setIsGenerating(true);
-      
-      // Call backend to initialize expert context
-      const response = await fetch('/initialize-expert', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          expert,
-          sub_expert: subExpert || "",
-          session_id: Date.now().toString()
-        })
-      });
-
-      console.log('Initialize expert response status:', response.status); // Debug log
-
-      if (!response.ok) {
-        throw new Error('Failed to initialize expert context');
-      }
-
-      const data = await response.json();
-      console.log('Initialize expert response data:', data); // Debug log
-      
-      // Add expert's introduction message
-      const expertIntroMessage: Message = {
-        id: Date.now().toString(),
-        type: 'ai',
-        content: data.introduction || `I am your ${expert}${subExpert ? ` specialized in ${subExpert}` : ''} expert. How can I assist you today?`,
-        timestamp: new Date(),
-        expert: expert
-      };
-
-      setMessages(prev => [...prev, expertIntroMessage]);
-      return true;
-    } catch (error) {
-      console.error('Error initializing expert context:', error); // Debug log
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        type: 'system',
-        content: 'Failed to initialize expert context. Please try selecting again.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-      return false;
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   // Update expert selection to initialize context
   const handleExpertSelect = async (expert: string) => {
-    console.log('handleExpertSelect called with:', expert); // Debug log
+    console.log('handleExpertSelect called with:', expert);
 
     if (!expert || typeof expert !== 'string') {
       console.error('Invalid expert selected:', expert);
       return;
     }
 
-    setIsGenerating(true); // Show loading state
+    setIsGenerating(true);
     
     try {
       // Normalize the expert name
       const normalizedExpert = expert.charAt(0).toUpperCase() + expert.slice(1).toLowerCase();
-      console.log('Normalized expert name:', normalizedExpert); // Debug log
+      console.log('Normalized expert name:', normalizedExpert);
       
       // Create a persona object that matches the Persona interface
       const newPersona: Persona = {
@@ -333,24 +279,29 @@ const ChatPage = () => {
         description: `${normalizedExpert} domain expertise`,
         icon: getExpertIcon(normalizedExpert)
       };
-      console.log('Created new persona:', newPersona); // Debug log
+      console.log('Created new persona:', newPersona);
 
-      // Initialize expert context first
-      const success = await initializeExpertContext(normalizedExpert, null);
-      console.log('Expert context initialization:', success ? 'successful' : 'failed'); // Debug log
+      // Set the expert and persona directly
+      setSelectedExpert(normalizedExpert);
+      setSelectedSubExpert(null);
+      setSelectedPersona(newPersona);
+      setIsPersonaModalOpen(false);
+      setIsNewChat(false);
+
+      // Add a welcome message from the expert
+      const expertWelcomeMessage: Message = {
+        id: Date.now().toString(),
+        type: 'ai',
+        content: `I am your ${normalizedExpert} expert. How can I assist you today?`,
+        timestamp: new Date(),
+        expert: normalizedExpert
+      };
+      setMessages(prev => [...prev, expertWelcomeMessage]);
       
-      if (success) {
-        setSelectedExpert(normalizedExpert);
-        setSelectedSubExpert(null);
-        setSelectedPersona(newPersona);
-        setIsPersonaModalOpen(false);
-        setIsNewChat(false);
-        
-        console.log('Expert selection completed:', { 
-          expert: normalizedExpert, 
-          persona: newPersona 
-        }); // Debug log
-      }
+      console.log('Expert selection completed:', { 
+        expert: normalizedExpert, 
+        persona: newPersona 
+      });
     } catch (error) {
       console.error('Error in expert selection:', error);
       const errorMessage: Message = {
@@ -375,13 +326,18 @@ const ChatPage = () => {
     setIsGenerating(true);
 
     try {
-      // Initialize context with new sub-expert
-      const success = await initializeExpertContext(selectedExpert, subExpert);
+      setSelectedSubExpert(subExpert);
       
-      if (success) {
-        setSelectedSubExpert(subExpert);
-        console.log('Sub-expert context initialized:', { expert: selectedExpert, subExpert });
-      }
+      // Add a message about specialization selection
+      const systemMessage: Message = {
+        id: Date.now().toString(),
+        type: 'system',
+        content: `Switched to ${selectedExpert} expert, specialized in ${subExpert}.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, systemMessage]);
+      
+      console.log('Sub-expert selection completed:', { expert: selectedExpert, subExpert });
     } catch (error) {
       console.error('Error in sub-expert selection:', error);
       const errorMessage: Message = {
@@ -525,9 +481,9 @@ const ChatPage = () => {
     } finally {
       setIsGenerating(false);
       setAttachedFiles([]);
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
     }
   };
 
@@ -842,10 +798,10 @@ const ChatPage = () => {
                   </span>
                 </button>
               ))}
-            </div>
+              </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
     </div>
   );
 
