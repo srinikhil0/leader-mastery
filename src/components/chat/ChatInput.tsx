@@ -152,18 +152,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
               focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 
               text-base placeholder:text-light-text-tertiary dark:placeholder:text-dark-text-tertiary
               min-h-[44px] max-h-[120px] overflow-y-auto leading-6
-              text-left direction-ltr custom-scrollbar"
+              custom-scrollbar"
             dir="ltr"
             autoFocus
           />
           
-          {/* Character count */}
-          {currentInput.length > 0 && (
-            <div className="absolute right-20 bottom-2 text-xs text-light-text-tertiary dark:text-dark-text-tertiary">
-              {currentInput.length} characters
-            </div>
-          )}
-
           {/* Send and Mic Buttons */}
           <div className="absolute right-2 top-2 flex items-center gap-2">
             <button 

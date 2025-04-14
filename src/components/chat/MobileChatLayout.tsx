@@ -410,13 +410,6 @@ export default function MobileChatLayout({
               autoFocus
             />
             
-            {/* Character count */}
-            {currentInput.length > 0 && (
-              <div className="absolute right-20 bottom-2 text-xs text-light-text-tertiary dark:text-dark-text-tertiary">
-                {currentInput.length} characters
-              </div>
-            )}
-
             <div className="absolute right-2 top-2 flex items-center gap-2">
               <button 
                 type="button"
