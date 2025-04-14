@@ -1,0 +1,203 @@
+{
+  "experts": [
+    "Finance",
+    "Judicial",
+    "Healthcare"
+  ],
+  "sub_experts": {
+    "Healthcare": [
+      "Cardio",
+      "Neuro",
+      "Gynac"
+    ],
+    "Finance": [],
+    "Judicial": []
+  },
+  "uploads": [
+    {
+      "file_hash": "m9gpwbgb",
+      "original_name": "Tales AI.pdf",
+      "path": "uploads\\69ca60ffb41cfb06783dd699a6809245",
+      "timestamp": "2025-04-14T06:53:28.187Z"
+    },
+    {
+      "file_hash": "m9gpwys0",
+      "original_name": "LLM_Justification_Report_Nikhil.pdf",
+      "path": "uploads\\db0febc1ddb0a8b11a88f7574c02db6f",
+      "timestamp": "2025-04-14T06:53:58.416Z"
+    },
+    {
+      "file_hash": "m9gq0f3i",
+      "original_name": "Sri_Nikhil_Reddy_Gudibandi_Resume.pdf",
+      "path": "uploads\\e658e1bf698983fc1cb00f36005227fb",
+      "timestamp": "2025-04-14T06:56:39.534Z"
+    },
+    {
+      "file_hash": "m9gq42rs",
+      "original_name": "LLM_Justification_Report_Nikhil.pdf",
+      "path": "uploads\\56ceb7b6473e537edc718f34b8785100",
+      "timestamp": "2025-04-14T06:59:30.184Z"
+    },
+    {
+      "file_hash": "m9gqci6l",
+      "original_name": "Sri_Nikhil_Reddy_Gudibandi_Resume.pdf",
+      "path": "uploads\\adf49011d98f9f8c6ef87b49b38a935e",
+      "timestamp": "2025-04-14T07:06:03.405Z"
+    },
+    {
+      "file_hash": "m9gqu6u1",
+      "original_name": "LLM_Justification_Report_Nikhil.pdf",
+      "path": "uploads\\4d6e13bfe183d033d5698f0da0240a3e",
+      "timestamp": "2025-04-14T07:19:48.505Z"
+    },
+    {
+      "file_hash": "m9gs9fmt",
+      "original_name": "LLM_Justification_Report_Nikhil.pdf",
+      "path": "uploads\\dfbb7010e486d453b73653f7b14719af",
+      "timestamp": "2025-04-14T07:59:39.365Z"
+    },
+    {
+      "file_hash": "m9gsa86n",
+      "original_name": "LLM_Justification_Report_Nikhil.pdf",
+      "path": "uploads\\c087d51087b55b4e650b57843f01b4d1",
+      "timestamp": "2025-04-14T08:00:16.368Z"
+    },
+    {
+      "file_hash": "m9gsauml",
+      "original_name": "Tales AI.pdf",
+      "path": "uploads\\00615fb6d95156deced9fafce85127d0",
+      "timestamp": "2025-04-14T08:00:45.453Z"
+    },
+    {
+      "file_hash": "m9gsaumm",
+      "original_name": "LLM_Justification_Report_Nikhil.pdf",
+      "path": "uploads\\92ee56fbb773c3e94b25fa6b22bb12ff",
+      "timestamp": "2025-04-14T08:00:45.454Z"
+    },
+    {
+      "file_hash": "m9gsaumo",
+      "original_name": "Sri_Nikhil_Reddy_Gudibandi_Resume.pdf",
+      "path": "uploads\\3517278fbf66667066e65bcc8f2d0adc",
+      "timestamp": "2025-04-14T08:00:45.456Z"
+    },
+    {
+      "file_hash": "m9gsaump",
+      "original_name": "NVS Dream Tech - Company registration Reciept.pdf",
+      "path": "uploads\\8828f96bb7a7c54c4aa1cca62bade306",
+      "timestamp": "2025-04-14T08:00:45.457Z"
+    },
+    {
+      "file_hash": "m9gsaums",
+      "original_name": "Restricted business.pdf",
+      "path": "uploads\\9ecb0388f0a2492ee45d31f5dc1ef907",
+      "timestamp": "2025-04-14T08:00:45.460Z"
+    },
+    {
+      "file_hash": "m9gsbqz0",
+      "original_name": "LLM_Justification_Report_Nikhil.pdf",
+      "path": "uploads\\e302d48e75ba1bb0d74ce438fde17209",
+      "timestamp": "2025-04-14T08:01:27.372Z"
+    },
+    {
+      "file_hash": "m9gsbqz6",
+      "original_name": "Tales AI.pdf",
+      "path": "uploads\\bb4427d7a74940fb7a84d268be817006",
+      "timestamp": "2025-04-14T08:01:27.378Z"
+    },
+    {
+      "file_hash": "m9gsbqz9",
+      "original_name": "Sri_Nikhil_Reddy_Gudibandi_Resume.pdf",
+      "path": "uploads\\b95c8276ac4c357998892b2a98a2d7e0",
+      "timestamp": "2025-04-14T08:01:27.381Z"
+    },
+    {
+      "file_hash": "m9gsbqzb",
+      "original_name": "NVS Dream Tech - Company registration Reciept.pdf",
+      "path": "uploads\\4bf4b2fae8007d91ea7e8a19166017c3",
+      "timestamp": "2025-04-14T08:01:27.383Z"
+    },
+    {
+      "file_hash": "m9gsbqzd",
+      "original_name": "Restricted business.pdf",
+      "path": "uploads\\0da86740cea96e3a51b3cfd6891bd8dc",
+      "timestamp": "2025-04-14T08:01:27.385Z"
+    },
+    {
+      "file_hash": "m9gsbtbf",
+      "original_name": "LLM_Justification_Report_Nikhil.pdf",
+      "path": "uploads\\f5e52557240463a2d73708a091b3007b",
+      "timestamp": "2025-04-14T08:01:30.411Z"
+    },
+    {
+      "file_hash": "m9gsbtbp",
+      "original_name": "Tales AI.pdf",
+      "path": "uploads\\79e1e2258a68d4d31b9a547f10978a09",
+      "timestamp": "2025-04-14T08:01:30.421Z"
+    },
+    {
+      "file_hash": "m9gsbtc0",
+      "original_name": "Sri_Nikhil_Reddy_Gudibandi_Resume.pdf",
+      "path": "uploads\\54ec219843e528739341d74715e360af",
+      "timestamp": "2025-04-14T08:01:30.432Z"
+    },
+    {
+      "file_hash": "m9gsbtc5",
+      "original_name": "NVS Dream Tech - Company registration Reciept.pdf",
+      "path": "uploads\\589ec0c4b85f9e32013a31681e264467",
+      "timestamp": "2025-04-14T08:01:30.437Z"
+    },
+    {
+      "file_hash": "m9gsbtce",
+      "original_name": "Restricted business.pdf",
+      "path": "uploads\\b9d9a4a2f1d439207ffe881eb67daf14",
+      "timestamp": "2025-04-14T08:01:30.446Z"
+    },
+    {
+      "file_hash": "m9gsc7kr",
+      "original_name": "Tales AI.pdf",
+      "path": "uploads\\1a46db9847f2df64c89ab22a77a95bba",
+      "timestamp": "2025-04-14T08:01:48.891Z"
+    },
+    {
+      "file_hash": "m9gsc7ky",
+      "original_name": "LLM_Justification_Report_Nikhil.pdf",
+      "path": "uploads\\39d63337c9a057d03c5443880ce2c043",
+      "timestamp": "2025-04-14T08:01:48.898Z"
+    },
+    {
+      "file_hash": "m9gsc7kz",
+      "original_name": "Sri_Nikhil_Reddy_Gudibandi_Resume.pdf",
+      "path": "uploads\\03365968ae4ad7e0393974a04938d0dc",
+      "timestamp": "2025-04-14T08:01:48.899Z"
+    },
+    {
+      "file_hash": "m9gsc7l0",
+      "original_name": "NVS Dream Tech - Company registration Reciept.pdf",
+      "path": "uploads\\f01a63c9abf23f37ba3946022698c560",
+      "timestamp": "2025-04-14T08:01:48.900Z"
+    },
+    {
+      "file_hash": "m9gsc7l4",
+      "original_name": "Restricted business.pdf",
+      "path": "uploads\\f708c7d1d88a942ce6b93117136aea52",
+      "timestamp": "2025-04-14T08:01:48.904Z"
+    }
+  ],
+  "questions": [
+    {
+      "id": 1,
+      "question": "What are the key principles of leadership?",
+      "expert": "Finance",
+      "sub_expert": null,
+      "response": "Leadership involves several key principles:\n1. Clear Vision\n2. Effective Communication\n3. Leading by Example\n4. Empowering Others\n5. Adaptability",
+      "citations": [
+        {
+          "page_number": 1,
+          "document_name": "Leadership_Guide.pdf",
+          "excerpt": "Leadership fundamentally requires a clear vision and the ability to communicate it effectively to others."
+        }
+      ],
+      "image_paths": []
+    }
+  ]
+}

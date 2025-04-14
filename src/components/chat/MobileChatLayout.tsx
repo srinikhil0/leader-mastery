@@ -36,7 +36,26 @@ interface MobileChatLayoutProps {
   setAttachedFiles: Dispatch<SetStateAction<File[]>>;
   selectedSource: 'internal' | 'external' | null;
   onSourceSelect: (source: 'internal' | 'external') => void;
+  experts: string[];
+  subExperts: string[];
+  selectedExpert: string | null;
+  selectedSubExpert: string | null;
+  setSelectedSubExpert: Dispatch<SetStateAction<string | null>>;
 }
+
+// Get icon for expert
+const getExpertIcon = (expert: string): string => {
+  switch (expert.toLowerCase()) {
+    case 'finance':
+      return '💰';
+    case 'judicial':
+      return '⚖️';
+    case 'healthcare':
+      return '🏥';
+    default:
+      return '👤';
+  }
+};
 
 export default function MobileChatLayout({
   messages,
@@ -69,7 +88,12 @@ export default function MobileChatLayout({
   onRemoveFile,
   setAttachedFiles,
   selectedSource,
-  onSourceSelect
+  onSourceSelect,
+  experts,
+  subExperts,
+  selectedExpert,
+  selectedSubExpert,
+  setSelectedSubExpert
 }: MobileChatLayoutProps) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -514,47 +538,53 @@ export default function MobileChatLayout({
               </button>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              {[
-                {
-                  id: 'judicial',
-                  name: 'Judicial',
-                  description: 'Legal and judicial domain expertise',
-                  icon: '⚖️'
-                },
-                {
-                  id: 'insurance',
-                  name: 'Insurance',
-                  description: 'Insurance sector knowledge',
-                  icon: '🛡️'
-                },
-                {
-                  id: 'finance',
-                  name: 'Finance',
-                  description: 'Financial services expertise',
-                  icon: '💰'
-                },
-                {
-                  id: 'healthcare',
-                  name: 'Healthcare',
-                  description: 'Healthcare industry insights',
-                  icon: '🏥'
-                }
-              ].map(persona => (
+              {experts.map(expert => (
                 <button 
-                  key={persona.id}
-                  onClick={() => onPersonaSelect(persona)}
+                  key={expert}
+                  onClick={() => onPersonaSelect({
+                    id: expert.toLowerCase(),
+                    name: expert,
+                    description: `${expert} domain expertise`,
+                    icon: getExpertIcon(expert)
+                  })}
                   className={`bg-light-bg-primary dark:bg-dark-bg-primary p-4 rounded-lg border-2 ${
-                    selectedPersona?.id === persona.id 
+                    selectedPersona?.name === expert 
                       ? 'border-primary' 
                       : 'border-light-border dark:border-dark-border hover:border-primary'
                   } transition-all duration-300 flex flex-col items-center text-center`}
                 >
-                  <span className="text-3xl mb-2">{persona.icon}</span>
-                  <h3 className="font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">{persona.name}</h3>
-                  <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">{persona.description}</p>
+                  <span className="text-3xl mb-2">{getExpertIcon(expert)}</span>
+                  <h3 className="font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">{expert}</h3>
+                  <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                    {expert} domain expertise
+                  </p>
                 </button>
               ))}
             </div>
+            {selectedExpert && subExperts.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary mb-3">
+                  Select Specialization
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  {subExperts.map(subExpert => (
+                    <button
+                      key={subExpert}
+                      onClick={() => setSelectedSubExpert(subExpert)}
+                      className={`bg-light-bg-primary dark:bg-dark-bg-primary p-3 rounded-lg border ${
+                        selectedSubExpert === subExpert
+                          ? 'border-primary'
+                          : 'border-light-border dark:border-dark-border hover:border-primary'
+                      } transition-all duration-300`}
+                    >
+                      <span className="text-light-text-primary dark:text-dark-text-primary">
+                        {subExpert}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

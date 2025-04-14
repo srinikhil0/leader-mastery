@@ -15,11 +15,14 @@ interface ChatInputProps {
   onSourceSelect: (source: 'internal' | 'external') => void;
   isSourceMenuOpen: boolean;
   isAttachMenuOpen: boolean;
+  isPersonaMenuOpen: boolean;
   onFileUpload: (file: File) => void;
   attachedFiles: File[];
   onRemoveFile: (fileIndex: number) => void;
   selectedSource: 'internal' | 'external' | null;
   selectedPersona: Persona | null;
+  availablePersonas?: Persona[];
+  onPersonaSelect?: (persona: Persona) => void;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -36,11 +39,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
   onSourceSelect,
   isSourceMenuOpen,
   isAttachMenuOpen,
+  isPersonaMenuOpen,
   onFileUpload,
   attachedFiles,
   onRemoveFile,
   selectedSource,
-  selectedPersona
+  selectedPersona,
+  availablePersonas,
+  onPersonaSelect
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,6 +86,15 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (currentInput.trim() && !isGenerating) {
+        onSubmit(currentInput);
+      }
+    }
+  };
+
   return (
     <div className="border-t border-light-border dark:border-dark-border px-4 py-2">
       <form onSubmit={(e) => {
@@ -112,6 +127,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             ref={inputRef}
             value={currentInput}
             onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
             disabled={isGenerating}
             placeholder={isGenerating ? "AI is generating..." : "Ask me anything..."}
             rows={1}
@@ -121,7 +137,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
               focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 
               text-base placeholder:text-light-text-tertiary dark:placeholder:text-dark-text-tertiary
               min-h-[44px] max-h-[120px] overflow-y-auto leading-6
-              text-left direction-ltr"
+              text-left direction-ltr custom-scrollbar"
             dir="ltr"
             autoFocus
           />
@@ -206,20 +222,44 @@ const ChatInput: React.FC<ChatInputProps> = ({
             <span>Search</span>
           </button>
 
-          <button 
-            type="button"
-            onClick={onPersonaClick}
-            className="flex items-center gap-1 px-2.5 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            {selectedPersona ? (
-              <span>{selectedPersona.name}</span>
-            ) : (
-              <span>Persona</span>
+          <div className="relative">
+            <button 
+              type="button"
+              onClick={onPersonaClick}
+              className="flex items-center gap-1 px-2.5 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {selectedPersona ? (
+                <>
+                  <span>{selectedPersona.name}</span>
+                  {selectedPersona.icon && <span className="ml-1">{selectedPersona.icon}</span>}
+                </>
+              ) : (
+                <span>Persona</span>
+              )}
+              <svg className="w-3.5 h-3.5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {isPersonaMenuOpen && availablePersonas && (
+              <div data-persona-menu className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-10">
+                {availablePersonas.map((persona) => (
+                  <button
+                    key={persona.id}
+                    onClick={() => onPersonaSelect?.(persona)}
+                    className={`w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary ${
+                      selectedPersona?.id === persona.id ? 'text-primary' : 'text-light-text-primary dark:text-dark-text-primary'
+                    } flex items-center gap-2`}
+                  >
+                    {persona.icon && <span>{persona.icon}</span>}
+                    <span>{persona.name}</span>
+                  </button>
+                ))}
+              </div>
             )}
-          </button>
+          </div>
 
           <div className="relative">
             <button

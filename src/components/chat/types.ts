@@ -3,6 +3,12 @@ export interface Message {
   content: string;
   type: 'user' | 'ai' | 'system';
   timestamp: Date;
+  attachments?: Array<{
+    type: string;
+    name: string;
+    size: number;
+  }>;
+  expert?: string;
 }
 
 export interface Conversation {
