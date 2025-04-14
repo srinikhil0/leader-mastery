@@ -4,6 +4,7 @@ import { Message, Citation, Conversation, Persona } from './types';
 import MobileChatLayout from './MobileChatLayout';
 import SettingsModal from '../settings/SettingsModal';
 import { useAuth } from '../../hooks/useAuth';
+import ChatInput from './ChatInput';
 
 // Web Speech API type declarations
 interface SpeechRecognition extends EventTarget {
@@ -58,6 +59,7 @@ const ChatPage = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
 
   // Input ref for focus management
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -153,28 +155,6 @@ const ChatPage = () => {
     }
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    const cursorPosition = e.target.selectionStart;
-    
-    // Set the input value
-    setCurrentInput(value);
-    
-    // Maintain cursor position
-    requestAnimationFrame(() => {
-      if (inputRef.current) {
-        inputRef.current.selectionStart = cursorPosition;
-        inputRef.current.selectionEnd = cursorPosition;
-      }
-    });
-
-    // Adjust textarea height
-    if (e.target) {
-      e.target.style.height = 'auto';
-      e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
-    }
-  };
-
   // Handle message submission
   const handleSubmit = async (input: string) => {
     if (!input.trim() || isGenerating) return;
@@ -244,23 +224,84 @@ const ChatPage = () => {
   };
 
   const handleUploadClick = () => {
-    // Placeholder function to keep the UI
-    console.log('Upload functionality not implemented');
+    setIsAttachMenuOpen(!isAttachMenuOpen);
+  };
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      // Validate file type
+      const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+      if (!validTypes.includes(file.type)) {
+        throw new Error('Invalid file type. Please upload PDF, DOC, DOCX, or TXT files.');
+      }
+
+      // Validate file size (10MB limit)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        throw new Error('File size exceeds 10MB limit.');
+      }
+
+      // Add system message for file upload
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        content: `File uploaded: ${file.name}`,
+        type: 'system',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, newMessage]);
+      
+      // Here you would typically upload the file to your server
+      console.log('Uploading file:', file.name);
+      
+    } catch (error) {
+      console.error('Upload error:', error);
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        content: `Upload error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        type: 'system',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
+
+  const handlePersonaSelect = (persona: Persona) => {
+    setSelectedPersona(persona);
+    setIsPersonaModalOpen(false);
+    
+    // Add system message for persona selection
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      content: `Persona selected: ${persona.name} - ${persona.description}`,
+      type: 'system',
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, newMessage]);
   };
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024); // lg breakpoint
+      setIsMobile(window.innerWidth < 768); // Use standard md breakpoint
     };
 
     // Set initial value
     handleResize();
 
-    // Add event listener
-    window.addEventListener('resize', handleResize);
+    // Add event listener with debounce for better performance
+    let timeoutId: NodeJS.Timeout;
+    const debouncedResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(handleResize, 100);
+    };
+
+    window.addEventListener('resize', debouncedResize);
 
     // Cleanup
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', debouncedResize);
+    };
   }, []);
 
   // Left Sidebar Component
@@ -395,7 +436,7 @@ const ChatPage = () => {
     </div>
   );
 
-  // Modal Component for Personas
+  // Persona Modal Component
   const PersonaModal = () => (
     <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 
       transition-opacity duration-300 ${isPersonaModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -415,12 +456,12 @@ const ChatPage = () => {
           {personas.map(persona => (
             <button
               key={persona.id}
-              onClick={() => {
-                // Handle persona selection
-                setIsPersonaModalOpen(false);
-              }}
-              className="bg-light-bg-primary dark:bg-dark-bg-primary p-4 rounded-lg border-2 border-light-border dark:border-dark-border hover:border-primary 
-                transition-all duration-300 flex flex-col items-center text-center"
+              onClick={() => handlePersonaSelect(persona)}
+              className={`bg-light-bg-primary dark:bg-dark-bg-primary p-4 rounded-lg border-2 ${
+                selectedPersona?.id === persona.id 
+                  ? 'border-primary' 
+                  : 'border-light-border dark:border-dark-border hover:border-primary'
+              } transition-all duration-300 flex flex-col items-center text-center`}
             >
               <span className="text-4xl mb-2">{persona.icon}</span>
               <h3 className="font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">{persona.name}</h3>
@@ -429,157 +470,6 @@ const ChatPage = () => {
           ))}
         </div>
       </div>
-    </div>
-  );
-
-  // Chat Input Component
-  const ChatInput = () => (
-    <div className="border-t border-light-border dark:border-dark-border px-4 py-2">
-      <form 
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSubmit(currentInput);
-        }}
-        className="space-y-2"
-      >
-        {/* Text Input */}
-        <div className="relative">
-          <textarea
-            ref={inputRef}
-            value={currentInput}
-            onChange={handleInputChange}
-            disabled={isGenerating}
-            placeholder={isGenerating ? "AI is generating..." : "Ask me anything..."}
-            rows={1}
-            style={{ resize: 'none' }}
-            className="w-full px-4 py-2 pr-20 rounded-lg border border-light-border dark:border-dark-border 
-              bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary 
-              focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 
-              text-base placeholder:text-light-text-tertiary dark:placeholder:text-dark-text-tertiary
-              min-h-[44px] max-h-[200px] overflow-y-auto leading-6
-              text-left direction-ltr"
-            dir="ltr"
-            autoFocus
-          />
-          
-          {/* Character count */}
-          {currentInput.length > 0 && (
-            <div className="absolute right-20 bottom-2 text-xs text-light-text-tertiary dark:text-dark-text-tertiary">
-              {currentInput.length} characters
-            </div>
-          )}
-
-          {/* Send and Mic Buttons */}
-          <div className="absolute right-2 top-2 flex items-center gap-2">
-            <button 
-              type="button"
-              disabled={isGenerating}
-              onClick={handleMicClick}
-              className={`p-1 rounded transition-colors ${isRecording ? 'text-error' : 'text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary'} disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            </button>
-            <button
-              type="submit"
-              disabled={!currentInput.trim() || isGenerating}
-              className="p-1 text-primary hover:text-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3 px-1">
-
-          {/* Attach Button with Dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsAttachMenuOpen(!isAttachMenuOpen)}
-              className="text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary transition-colors flex items-center gap-1 text-sm"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-              </svg>
-              <span>Attach</span>
-            </button>
-            {isAttachMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-10">
-                <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary flex items-center gap-2">
-                  <svg className="w-4 h-4 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                  Connect to Drive
-                </button>
-                <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary flex items-center gap-2">
-                  <svg className="w-4 h-4 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                  </svg>
-                  Connect to Database
-                </button>
-                <button 
-                  onClick={handleUploadClick}
-                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  Upload from device
-                </button>
-              </div>
-            )}
-          </div>
-          
-          {/* Search Button */}
-          <button 
-            type="button"
-            className="text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary transition-colors flex items-center gap-1 text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 4 10 15 15 0 0 1-4 10A15 15 0 0 1 8 13a15 15 0 0 1 4-10z" />
-            </svg>
-            <span>Search</span>
-          </button>
-
-          {/* Persona Button */}
-          <button 
-            type="button"
-            onClick={() => setIsPersonaModalOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-sm"
-          >
-            <span>Persona</span>
-          </button>
-
-          {/* Source Button with Dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
-              className="flex items-center gap-1 px-2.5 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-sm"
-            >
-              <span>Source</span>
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {isSourceMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-1 w-32 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-10">
-                <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">Internal</button>
-                <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">External</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </form>
-
-      <p className="text-xs text-light-text-tertiary dark:text-dark-text-tertiary text-center mt-2">
-        AI can make mistakes. Please verify the responses.
-      </p>
     </div>
   );
 
@@ -611,28 +501,6 @@ const ChatPage = () => {
     </div>
   );
 
-  // Chat Messages Component
-  const ChatMessages = () => (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-      {messages.map(message => (
-        <div
-          key={message.id}
-          className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-        >
-          <div
-            className={`max-w-[70%] rounded-lg p-4 whitespace-pre-wrap break-words ${
-              message.type === 'user'
-                ? 'bg-primary text-white'
-                : 'bg-light-bg-secondary dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary'
-            }`}
-          >
-            {message.content}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
   // If mobile, use mobile layout
   if (isMobile) {
     return (
@@ -640,9 +508,9 @@ const ChatPage = () => {
         messages={messages}
         conversations={conversations}
         citations={citations}
-        setCitations={setCitations}
         setMessages={setMessages}
         setConversations={setConversations}
+        setCitations={setCitations}
         currentInput={currentInput}
         setCurrentInput={setCurrentInput}
         isNewChat={isNewChat}
@@ -660,26 +528,76 @@ const ChatPage = () => {
         isRecording={isRecording}
         setIsRecording={setIsRecording}
         inputRef={inputRef as React.RefObject<HTMLTextAreaElement>}
+        onFileUpload={handleFileUpload}
+        onPersonaSelect={handlePersonaSelect}
+        selectedPersona={selectedPersona}
       />
     );
   }
 
   // Desktop layout
   return (
-    <div className="flex w-full h-screen bg-light-bg-tertiary dark:bg-dark-bg-tertiary">
+    <div className="fixed inset-0 flex w-full h-full bg-light-bg-tertiary dark:bg-dark-bg-tertiary overflow-hidden">
       <LeftSidebar />
       
-      <main className={`flex-1 flex flex-col transition-all duration-300 ease-in-out
+      <main className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out
         ${citations.length > 0 ? 'mr-80' : 'mr-0'}`}>
         {isNewChat ? (
           <>
             <NewChatWelcome />
-            <ChatInput />
+            <ChatInput
+              inputRef={inputRef}
+              currentInput={currentInput}
+              setCurrentInput={setCurrentInput}
+              isGenerating={isGenerating}
+              isRecording={isRecording}
+              onMicClick={handleMicClick}
+              onSubmit={handleSubmit}
+              onAttachClick={handleUploadClick}
+              onPersonaClick={() => setIsPersonaModalOpen(true)}
+              onSourceClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
+              isSourceMenuOpen={isSourceMenuOpen}
+              isAttachMenuOpen={isAttachMenuOpen}
+              onFileUpload={handleFileUpload}
+            />
           </>
         ) : (
           <>
-            <ChatMessages />
-            <ChatInput />
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map(message => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[70%] rounded-lg p-4 whitespace-pre-wrap break-words ${
+                      message.type === 'user'
+                        ? 'bg-primary text-white'
+                        : message.type === 'system'
+                        ? 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary text-light-text-secondary dark:text-dark-text-secondary border border-light-border dark:border-dark-border'
+                        : 'bg-light-bg-secondary dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary'
+                    }`}
+                  >
+                    {message.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <ChatInput
+              inputRef={inputRef}
+              currentInput={currentInput}
+              setCurrentInput={setCurrentInput}
+              isGenerating={isGenerating}
+              isRecording={isRecording}
+              onMicClick={handleMicClick}
+              onSubmit={handleSubmit}
+              onAttachClick={handleUploadClick}
+              onPersonaClick={() => setIsPersonaModalOpen(true)}
+              onSourceClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
+              isSourceMenuOpen={isSourceMenuOpen}
+              isAttachMenuOpen={isAttachMenuOpen}
+              onFileUpload={handleFileUpload}
+            />
           </>
         )}
       </main>

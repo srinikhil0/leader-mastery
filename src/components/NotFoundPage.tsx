@@ -4,7 +4,7 @@ const NotFoundPage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-light-bg-tertiary dark:bg-dark-bg-tertiary px-4">
       <div className="text-center space-y-8 max-w-md w-full">
         {/* Logo */}
         <div className="flex justify-center mb-12 transform transition-all duration-500 hover:scale-105">
@@ -17,10 +17,10 @@ const NotFoundPage = () => {
 
         {/* 404 Text */}
         <h1 className="text-6xl font-bold text-primary">404</h1>
-        <h2 className="text-3xl font-semibold text-gray-800">Page Not Found</h2>
+        <h2 className="text-3xl font-semibold text-light-text-primary dark:text-dark-text-primary">Page Not Found</h2>
         
         {/* Message */}
-        <p className="text-gray-600 text-lg">
+        <p className="text-light-text-secondary dark:text-dark-text-secondary text-lg">
           The page you're looking for doesn't exist or has been moved.
         </p>
 

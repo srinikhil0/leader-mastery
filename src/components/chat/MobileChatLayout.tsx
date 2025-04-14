@@ -1,5 +1,5 @@
-import { Dispatch, SetStateAction, useState } from 'react';
-import { Message, Conversation, Citation } from './types';
+import { Dispatch, SetStateAction, useState, useRef } from 'react';
+import { Message, Conversation, Citation, Persona } from './types';
 import { useNavigate } from 'react-router-dom';
 import SettingsModal from '../settings/SettingsModal';
 import { useAuth } from '../../hooks/useAuth';
@@ -28,6 +28,9 @@ interface MobileChatLayoutProps {
   isRecording: boolean;
   setIsRecording: (isRecording: boolean) => void;
   inputRef: React.RefObject<HTMLTextAreaElement>;
+  onFileUpload: (file: File) => void;
+  onPersonaSelect: (persona: Persona) => void;
+  selectedPersona: Persona | null;
 }
 
 export default function MobileChatLayout({
@@ -53,12 +56,27 @@ export default function MobileChatLayout({
   setIsSourceMenuOpen,
   isRecording,
   setIsRecording,
-  inputRef
+  inputRef,
+  onFileUpload,
+  onPersonaSelect,
+  selectedPersona
 }: MobileChatLayoutProps) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onFileUpload(file);
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="flex flex-col h-screen bg-light-bg-secondary dark:bg-dark-bg-secondary">
       {/* Mobile Header */}
@@ -193,13 +211,14 @@ export default function MobileChatLayout({
               onInput={(e) => {
                 const target = e.target as HTMLTextAreaElement;
                 target.style.height = 'auto';
-                target.style.height = Math.min(target.scrollHeight, 200) + 'px';
+                const maxHeight = 5 * 24; // 5 lines * 24px (line height)
+                target.style.height = Math.min(target.scrollHeight, maxHeight) + 'px';
               }}
               className="w-full px-4 py-2 pr-20 rounded-lg border border-light-border dark:border-dark-border 
                 bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary 
                 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 
                 text-base placeholder:text-light-text-tertiary dark:placeholder:text-dark-text-tertiary
-                min-h-[44px] max-h-[200px] overflow-y-auto leading-6"
+                min-h-[44px] max-h-[120px] overflow-y-auto leading-6"
               autoFocus
             />
             
@@ -235,14 +254,43 @@ export default function MobileChatLayout({
 
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-4">
+              <div className="relative">
+                <button 
+                  type="button" 
+                  className="text-light-text-secondary dark:text-dark-text-secondary p-1.5" 
+                  onClick={() => setIsAttachMenuOpen(!isAttachMenuOpen)}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                </button>
+                {isAttachMenuOpen && (
+                  <div className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-50">
+                    <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">
+                      Connect to Drive
+                    </button>
+                    <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">
+                      Connect to DB
+                    </button>
+                    <button 
+                      onClick={handleUploadClick}
+                      className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
+                    >
+                      Upload from Device
+                    </button>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.txt"
+                />
+              </div>
               <button type="button" className="text-light-text-secondary dark:text-dark-text-secondary p-1.5">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 4 10 15 15 0 0 1-4 10A15 15 0 0 1 8 13a15 15 0 0 1 4-10z" />
-                </svg>
-              </button>
-              <button type="button" className="text-light-text-secondary dark:text-dark-text-secondary p-1.5" onClick={() => setIsAttachMenuOpen(!isAttachMenuOpen)}>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                 </svg>
               </button>
               <button type="button" className="text-light-text-secondary dark:text-dark-text-secondary p-1.5" onClick={() => setIsPersonaModalOpen(true)}>
@@ -383,16 +431,46 @@ export default function MobileChatLayout({
               </button>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <button className="bg-light-bg-primary dark:bg-dark-bg-primary p-4 rounded-lg border-2 border-light-border dark:border-dark-border hover:border-primary flex flex-col items-center text-center">
-                <span className="text-3xl mb-2">⚖️</span>
-                <h3 className="font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">Judicial</h3>
-                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Legal and judicial domain expertise</p>
-              </button>
-              <button className="bg-light-bg-primary dark:bg-dark-bg-primary p-4 rounded-lg border-2 border-light-border dark:border-dark-border hover:border-primary flex flex-col items-center text-center">
-                <span className="text-3xl mb-2">🛡️</span>
-                <h3 className="font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">Insurance</h3>
-                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Insurance sector knowledge</p>
-              </button>
+              {[
+                {
+                  id: 'judicial',
+                  name: 'Judicial',
+                  description: 'Legal and judicial domain expertise',
+                  icon: '⚖️'
+                },
+                {
+                  id: 'insurance',
+                  name: 'Insurance',
+                  description: 'Insurance sector knowledge',
+                  icon: '🛡️'
+                },
+                {
+                  id: 'finance',
+                  name: 'Finance',
+                  description: 'Financial services expertise',
+                  icon: '💰'
+                },
+                {
+                  id: 'healthcare',
+                  name: 'Healthcare',
+                  description: 'Healthcare industry insights',
+                  icon: '🏥'
+                }
+              ].map(persona => (
+                <button 
+                  key={persona.id}
+                  onClick={() => onPersonaSelect(persona)}
+                  className={`bg-light-bg-primary dark:bg-dark-bg-primary p-4 rounded-lg border-2 ${
+                    selectedPersona?.id === persona.id 
+                      ? 'border-primary' 
+                      : 'border-light-border dark:border-dark-border hover:border-primary'
+                  } transition-all duration-300 flex flex-col items-center text-center`}
+                >
+                  <span className="text-3xl mb-2">{persona.icon}</span>
+                  <h3 className="font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">{persona.name}</h3>
+                  <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">{persona.description}</p>
+                </button>
+              ))}
             </div>
           </div>
         </div>

@@ -7,6 +7,7 @@ import { AuthProvider } from './contexts/AuthProvider';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ThemeProvider } from './contexts/ThemeContext';
 import DocumentHistory from './pages/DocumentHistory';
+import NotFoundPage from './components/NotFoundPage';
 import './App.css'
 
 function App() {
@@ -35,7 +36,7 @@ function App() {
               } 
             />
             <Route path="/" element={<Navigate to="/chat" replace />} />
-            <Route path="*" element={<Navigate to="/chat" replace />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </ThemeProvider>
       </AuthProvider>

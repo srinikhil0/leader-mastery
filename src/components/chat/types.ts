@@ -1,7 +1,7 @@
 export interface Message {
   id: string;
   content: string;
-  type: 'user' | 'ai';
+  type: 'user' | 'ai' | 'system';
   timestamp: Date;
 }
 

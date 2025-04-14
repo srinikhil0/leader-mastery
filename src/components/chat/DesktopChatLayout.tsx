@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useState, RefObject } from 'react';
+import { Dispatch, SetStateAction, useState, RefObject, useRef } from 'react';
 import { Message, Conversation, Citation, Persona } from './types';
 import SettingsModal from '../settings/SettingsModal';
 import { useAuth } from '../../hooks/useAuth';
@@ -18,13 +18,15 @@ interface DesktopChatLayoutProps {
   setIsSidebarCollapsed: Dispatch<SetStateAction<boolean>>;
   isPersonaModalOpen: boolean;
   setIsPersonaModalOpen: Dispatch<SetStateAction<boolean>>;
-  isAttachMenuOpen: boolean;
-  setIsAttachMenuOpen: Dispatch<SetStateAction<boolean>>;
   isSourceMenuOpen: boolean;
   setIsSourceMenuOpen: Dispatch<SetStateAction<boolean>>;
   isRecording: boolean;
   setIsRecording: Dispatch<SetStateAction<boolean>>;
   inputRef?: RefObject<HTMLTextAreaElement>;
+  onFileUpload: (file: File) => void;
+  onPersonaSelect: (persona: Persona) => void;
+  selectedPersona: Persona | null;
+  setMessages: Dispatch<SetStateAction<Message[]>>;
 }
 
 const DesktopChatLayout = ({
@@ -42,16 +44,19 @@ const DesktopChatLayout = ({
   setIsSidebarCollapsed,
   isPersonaModalOpen,
   setIsPersonaModalOpen,
-  isAttachMenuOpen,
-  setIsAttachMenuOpen,
   isSourceMenuOpen,
   setIsSourceMenuOpen,
   isRecording,
   setIsRecording,
-  inputRef
+  inputRef,
+  onFileUpload,
+  onPersonaSelect,
+  selectedPersona,
+  setMessages
 }: DesktopChatLayoutProps) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { currentUser } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Personas data
   const personas: Persona[] = [
@@ -80,6 +85,25 @@ const DesktopChatLayout = ({
       icon: '🏥'
     }
   ];
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onFileUpload(file);
+      // Add system message for file upload
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        content: `File uploaded: ${file.name}`,
+        type: 'system',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, newMessage]);
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -188,6 +212,8 @@ const DesktopChatLayout = ({
                   <div className={`max-w-[70%] rounded-lg p-3 ${
                     message.type === 'user'
                       ? 'bg-primary text-white'
+                      : message.type === 'system'
+                      ? 'bg-gray-100 text-gray-900 border border-gray-200'
                       : 'bg-gray-100 text-gray-900'
                   }`}>
                     {message.content}
@@ -251,7 +277,7 @@ const DesktopChatLayout = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 4 10 15 15 0 0 1-4 10A15 15 0 0 1 8 13a15 15 0 0 1 4-10z" />
                   </svg>
                 </button>
-                <button type="button" className="text-gray-600 p-1.5" onClick={() => setIsAttachMenuOpen(!isAttachMenuOpen)}>
+                <button type="button" className="text-gray-600 p-1.5" onClick={handleUploadClick}>
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
@@ -348,8 +374,15 @@ const DesktopChatLayout = ({
               {personas.map(persona => (
                 <button
                   key={persona.id}
-                  onClick={() => setIsPersonaModalOpen(false)}
-                  className="bg-white p-4 rounded-lg border-2 border-gray-200 hover:border-primary flex flex-col items-center text-center"
+                  onClick={() => {
+                    setIsPersonaModalOpen(false);
+                    onPersonaSelect(persona);
+                  }}
+                  className={`bg-white p-4 rounded-lg border-2 ${
+                    selectedPersona?.id === persona.id 
+                      ? 'border-primary' 
+                      : 'border-gray-200 hover:border-primary'
+                  } flex flex-col items-center text-center`}
                 >
                   <span className="text-3xl mb-2">{persona.icon}</span>
                   <h3 className="font-semibold text-gray-900 mb-1">{persona.name}</h3>
@@ -360,6 +393,14 @@ const DesktopChatLayout = ({
           </div>
         </div>
       )}
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        className="hidden"
+        accept=".pdf,.doc,.docx,.txt"
+      />
     </div>
   );
 };
