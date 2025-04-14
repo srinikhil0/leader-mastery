@@ -34,6 +34,8 @@ interface MobileChatLayoutProps {
   attachedFiles: File[];
   onRemoveFile: (fileIndex: number) => void;
   setAttachedFiles: Dispatch<SetStateAction<File[]>>;
+  selectedSource: 'internal' | 'external' | null;
+  onSourceSelect: (source: 'internal' | 'external') => void;
 }
 
 export default function MobileChatLayout({
@@ -65,7 +67,9 @@ export default function MobileChatLayout({
   selectedPersona,
   attachedFiles,
   onRemoveFile,
-  setAttachedFiles
+  setAttachedFiles,
+  selectedSource,
+  onSourceSelect
 }: MobileChatLayoutProps) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -301,8 +305,8 @@ export default function MobileChatLayout({
             </div>
           </div>
 
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 px-1">
+            <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none">
               <div className="relative">
                 <button 
                   type="button" 
@@ -343,25 +347,45 @@ export default function MobileChatLayout({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 4 10 15 15 0 0 1-4 10A15 15 0 0 1 8 13a15 15 0 0 1 4-10z" />
                 </svg>
               </button>
-              <button type="button" className="text-light-text-secondary dark:text-dark-text-secondary p-1.5" onClick={() => setIsPersonaModalOpen(true)}>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+              <button 
+                type="button" 
+                className="flex items-center gap-1 px-2.5 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-sm" 
+                onClick={() => setIsPersonaModalOpen(true)}
+              >
+                {selectedPersona ? (
+                  <>
+                    <span>{selectedPersona.icon}</span>
+                    <span>{selectedPersona.name}</span>
+                  </>
+                ) : (
+                  <span>Persona</span>
+                )}
               </button>
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
-                  className="text-light-text-secondary dark:text-dark-text-secondary p-1.5 flex items-center gap-1"
+                  className="text-sm p-1.5 flex items-center gap-1 text-light-text-secondary dark:text-dark-text-secondary"
                 >
+                  {selectedSource ? selectedSource.charAt(0).toUpperCase() + selectedSource.slice(1) : 'Source'}
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
                 {isSourceMenuOpen && (
                   <div className="absolute bottom-full left-0 mb-1 w-32 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-50">
-                    <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">Internal</button>
-                    <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">External</button>
+                    <button 
+                      onClick={() => onSourceSelect('internal')}
+                      className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
+                    >
+                      Internal
+                    </button>
+                    <button 
+                      onClick={() => onSourceSelect('external')}
+                      className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
+                    >
+                      External
+                    </button>
                   </div>
                 )}
               </div>

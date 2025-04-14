@@ -1,4 +1,5 @@
 import React, { RefObject, Dispatch, SetStateAction, useRef } from 'react';
+import { Persona } from './types';
 
 interface ChatInputProps {
   inputRef: RefObject<HTMLTextAreaElement | null>;
@@ -11,11 +12,14 @@ interface ChatInputProps {
   onAttachClick: () => void;
   onPersonaClick: () => void;
   onSourceClick: () => void;
+  onSourceSelect: (source: 'internal' | 'external') => void;
   isSourceMenuOpen: boolean;
   isAttachMenuOpen: boolean;
   onFileUpload: (file: File) => void;
   attachedFiles: File[];
   onRemoveFile: (fileIndex: number) => void;
+  selectedSource: 'internal' | 'external' | null;
+  selectedPersona: Persona | null;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -29,11 +33,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
   onAttachClick,
   onPersonaClick,
   onSourceClick,
+  onSourceSelect,
   isSourceMenuOpen,
   isAttachMenuOpen,
   onFileUpload,
   attachedFiles,
-  onRemoveFile
+  onRemoveFile,
+  selectedSource,
+  selectedPersona
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -204,7 +211,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
             onClick={onPersonaClick}
             className="flex items-center gap-1 px-2.5 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-sm"
           >
-            <span>Persona</span>
+            {selectedPersona ? (
+              <>
+                <span>{selectedPersona.icon}</span>
+                <span>{selectedPersona.name}</span>
+              </>
+            ) : (
+              <span>Persona</span>
+            )}
           </button>
 
           <div className="relative">
@@ -213,15 +227,25 @@ const ChatInput: React.FC<ChatInputProps> = ({
               onClick={onSourceClick}
               className="flex items-center gap-1 px-2.5 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-sm"
             >
-              <span>Source</span>
+              <span>{selectedSource ? `Source: ${selectedSource.charAt(0).toUpperCase() + selectedSource.slice(1)}` : 'Source'}</span>
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
             {isSourceMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-1 w-32 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-10">
-                <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">Internal</button>
-                <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">External</button>
+              <div className="absolute bottom-full left-0 mb-1 w-32 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1">
+                <button 
+                  onClick={() => onSourceSelect('internal')}
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
+                >
+                  Internal
+                </button>
+                <button 
+                  onClick={() => onSourceSelect('external')}
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
+                >
+                  External
+                </button>
               </div>
             )}
           </div>

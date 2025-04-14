@@ -61,6 +61,7 @@ const ChatPage = () => {
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [selectedSource, setSelectedSource] = useState<'internal' | 'external' | null>(null);
 
   // Input ref for focus management
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -286,19 +287,18 @@ const ChatPage = () => {
     setAttachedFiles(prev => prev.filter((_, index) => index !== fileIndex));
   };
 
+  // Add persona selection handler
   const handlePersonaSelect = (persona: Persona) => {
     setSelectedPersona(persona);
     setIsPersonaModalOpen(false);
     setIsNewChat(false); // Ensure we're showing messages view
-    
-    // Add system message for persona selection
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      content: `Persona selected: ${persona.name} - ${persona.description}`,
-      type: 'system',
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, newMessage]);
+  };
+
+  // Add source selection handler
+  const handleSourceSelect = (source: 'internal' | 'external') => {
+    setSelectedSource(source);
+    setIsSourceMenuOpen(false);
+    setIsNewChat(false);
   };
 
   useEffect(() => {
@@ -546,6 +546,8 @@ const ChatPage = () => {
         attachedFiles={attachedFiles}
         onRemoveFile={handleRemoveFile}
         setAttachedFiles={setAttachedFiles}
+        selectedSource={selectedSource}
+        onSourceSelect={handleSourceSelect}
       />
     );
   }
@@ -571,11 +573,14 @@ const ChatPage = () => {
               onAttachClick={handleUploadClick}
               onPersonaClick={() => setIsPersonaModalOpen(true)}
               onSourceClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
+              onSourceSelect={handleSourceSelect}
               isSourceMenuOpen={isSourceMenuOpen}
               isAttachMenuOpen={isAttachMenuOpen}
               onFileUpload={handleFileUpload}
               attachedFiles={attachedFiles}
               onRemoveFile={handleRemoveFile}
+              selectedSource={selectedSource}
+              selectedPersona={selectedPersona}
             />
           </>
         ) : (
@@ -611,11 +616,14 @@ const ChatPage = () => {
               onAttachClick={handleUploadClick}
               onPersonaClick={() => setIsPersonaModalOpen(true)}
               onSourceClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
+              onSourceSelect={handleSourceSelect}
               isSourceMenuOpen={isSourceMenuOpen}
               isAttachMenuOpen={isAttachMenuOpen}
               onFileUpload={handleFileUpload}
               attachedFiles={attachedFiles}
               onRemoveFile={handleRemoveFile}
+              selectedSource={selectedSource}
+              selectedPersona={selectedPersona}
             />
           </>
         )}
