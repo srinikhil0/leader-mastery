@@ -130,48 +130,49 @@ export default function MobileChatLayout({
     fileInputRef.current?.click();
   };
 
-  const handleFeedback = (messageId: string, isPositive: boolean) => {
-    console.log(`Feedback for message ${messageId}: ${isPositive ? 'positive' : 'negative'}`);
-    // Here you can implement the API call to save feedback
-  };
-
   const handleCopyMessage = (messageId: string, content: string) => {
     navigator.clipboard.writeText(content)
       .then(() => {
         setCopiedMessageId(messageId);
         setTimeout(() => {
           setCopiedMessageId(null);
-        }, 2000); // Reset after 2 seconds
+        }, 2000);
       })
       .catch(err => {
         console.error('Failed to copy message:', err);
       });
   };
 
-  const handleShowCitations = () => {
-    if (citations.length > 0) {
-      setIsCitationsVisible(!isCitationsVisible); // Toggle visibility
-    }
-  };
-
   return (
     <div className="flex flex-col h-screen bg-light-bg-secondary dark:bg-dark-bg-secondary">
       {/* Mobile Header */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-light-bg-primary dark:bg-dark-bg-primary border-b border-light-border dark:border-dark-border flex items-center px-4 z-30">
-        <button 
-          onClick={() => setIsSidebarCollapsed(false)}
-          className="p-2 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
-        >
-          <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        <img 
-          src="./leader-mastery-emblem-text.png" 
-          alt="Leader Mastery"
-          className="h-8 w-auto ml-3" 
-        />
-      </header>
+      <div className="fixed top-0 left-0 right-0 h-14 bg-light-bg-primary dark:bg-dark-bg-primary border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-30">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsSidebarCollapsed(false)}
+            className="p-2 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <img 
+            src="./leader-mastery-emblem-text.png" 
+            alt="Leader Mastery"
+            className="h-8 w-auto" 
+          />
+        </div>
+        {citations.length > 0 && (
+          <button
+            onClick={() => setIsCitationsVisible(true)}
+            className="p-2 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors text-light-text-secondary dark:text-dark-text-secondary"
+          >
+            <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+          </button>
+        )}
+      </div>
 
       {/* Mobile Content Area */}
       <main className="flex-1 overflow-hidden mt-14 mb-[120px]">
@@ -180,20 +181,20 @@ export default function MobileChatLayout({
             <img 
               src="./leader-mastery-emblem-text.png" 
               alt="Leader Mastery"
-              className="h-16 w-16 mb-6" 
+              className="h-12 w-12 mb-4" 
             />
-            <p className="text-light-text-secondary dark:text-dark-text-secondary text-center text-sm max-w-xs">
+            <p className="text-light-text-secondary dark:text-dark-text-secondary text-center text-xs max-w-[250px]">
               Your AI-powered leadership development assistant. Ask me anything about leadership and management.
             </p>
           </div>
         ) : (
-          <div ref={mobileChatAreaRef} className="h-full overflow-y-auto px-4 py-6 space-y-6">
+          <div ref={mobileChatAreaRef} className="h-full overflow-y-auto px-2 py-6 space-y-6">
             {messages.map(message => (
               <div
                 key={message.id}
                 className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className="max-w-[85%]">
+                <div className={`${message.type === 'user' ? 'max-w-[92%]' : 'max-w-[92%]'}`}>
                   {/* Display attachments if present */}
                   {message.attachments && message.attachments.length > 0 && (
                     <div className="mb-2 space-y-2">
@@ -204,7 +205,7 @@ export default function MobileChatLayout({
                         >
                           <div className="p-2 rounded-lg bg-primary/10">
                             <svg className="w-6 h-6 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                              <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M13,13V18H15V13H13M9,13V18H11V13H9Z" />
+                              <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
                             </svg>
                           </div>
                           <div className="flex-1 min-w-0">
@@ -220,77 +221,45 @@ export default function MobileChatLayout({
                     </div>
                   )}
 
-                  <div className={`rounded-lg p-3 ${
+                  <div className={`rounded-lg p-4 ${
                     message.type === 'user'
                       ? 'bg-primary text-white'
                       : message.type === 'system'
                       ? 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary text-light-text-secondary dark:text-dark-text-secondary border border-light-border dark:border-dark-border'
                       : 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary'
                   }`}>
-                    {message.content}
+                    <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+                      {message.content}
+                    </p>
                   </div>
-                  
-                  {/* Action buttons for AI messages */}
+
+                  {/* Message Actions */}
                   {message.type === 'ai' && (
-                    <div className="flex items-center space-x-3 mt-2 text-light-text-secondary dark:text-dark-text-secondary">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleFeedback(message.id, true)}
-                          className="p-1.5 rounded-full hover:-translate-y-0.5 transition-transform duration-200 ease-in-out"
-                          title="Helpful"
-                        >
+                    <div className="flex items-center gap-2 mt-2 px-1">
+                      <button
+                        onClick={() => handleCopyMessage(message.id, message.content)}
+                        className="p-1.5 rounded-lg text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary"
+                      >
+                        {copiedMessageId === message.id ? (
                           <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                            <path fill="currentColor" d="M2 20h2c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1H2v11zm19.83-7.12c.11-.25.17-.52.17-.8V11c0-1.1-.9-2-2-2h-5.5l.92-4.65c.05-.22.02-.46-.08-.66-.23-.45-.52-.86-.88-1.22L14 2 7.59 8.41C7.21 8.79 7 9.3 7 9.83v7.84C7 18.95 8.05 20 9.34 20h8.11c.7 0 1.36-.37 1.72-.97l2.66-6.15z"/>
+                            <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                           </svg>
-                        </button>
-                        <button
-                          onClick={() => handleFeedback(message.id, false)}
-                          className="p-1.5 rounded-full hover:-translate-y-0.5 transition-transform duration-200 ease-in-out"
-                          title="Not helpful"
-                        >
+                        ) : (
                           <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                            <path fill="currentColor" d="M22 4h-2c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1h2V4zM2.17 11.12c-.11.25-.17.52-.17.8V13c0 1.1.9 2 2 2h5.5l-.92 4.65c-.05.22-.02.46.08.66.23.45.52.86.88 1.22L10 22l6.41-6.41c.38-.38.59-.89.59-1.42V6.34C17 5.05 15.95 4 14.66 4h-8.1c-.71 0-1.36.37-1.72.97l-2.67 6.15z"/>
+                            <path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                           </svg>
-                        </button>
-                      </div>
-                      <div className="w-px h-4 bg-light-border dark:bg-dark-border" />
-                      <div className="flex items-center space-x-2">
+                        )}
+                      </button>
+                      {citations.length > 0 && (
                         <button
-                          onClick={() => handleCopyMessage(message.id, message.content)}
-                          className="p-1.5 rounded-full hover:-translate-y-0.5 transition-transform duration-200 ease-in-out"
-                          title={copiedMessageId === message.id ? "Copied!" : "Copy message"}
-                        >
-                          <div className="relative">
-                            <svg 
-                              className={`w-4 h-4 absolute transition-all duration-300 ease-in-out ${
-                                copiedMessageId === message.id ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
-                              }`} 
-                              xmlns="http://www.w3.org/2000/svg" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                            </svg>
-                            <svg 
-                              className={`w-4 h-4 transition-all duration-300 ease-in-out ${
-                                copiedMessageId === message.id ? 'opacity-0 scale-50' : 'opacity-100 scale-100'
-                              }`} 
-                              xmlns="http://www.w3.org/2000/svg" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                            </svg>
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => handleShowCitations()}
-                          className="p-1.5 rounded-full hover:-translate-y-0.5 transition-transform duration-200 ease-in-out"
-                          title="Show citations"
+                          onClick={() => setIsCitationsVisible(true)}
+                          className="p-1.5 rounded-lg text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary"
                         >
                           <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                             <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
                           </svg>
                         </button>
-                      </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -300,246 +269,11 @@ export default function MobileChatLayout({
         )}
       </main>
 
-      {/* Citations Drawer */}
-      <div className={`fixed inset-y-0 right-0 w-[80%] max-w-md bg-light-bg-primary dark:bg-dark-bg-primary 
-        transform transition-all duration-300 ease-out shadow-lg border-l border-light-border dark:border-dark-border
-        ${isCitationsVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}>
-        <div className="h-full flex flex-col pt-14">
-          <div className="p-4 border-b border-light-border dark:border-dark-border flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">Citations</h2>
-            <button onClick={() => setIsCitationsVisible(false)}>
-              <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {citations.map(citation => (
-              <div key={citation.id} className="bg-light-bg-secondary dark:bg-dark-bg-secondary p-4 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
-                    {citation.type === 'pdf' ? `PDF - Page ${citation.pageNumber}` : 'Web Source'}
-                  </span>
-                </div>
-                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">{citation.content}</p>
-                {citation.url && (
-                  <a 
-                    href={citation.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-primary text-sm hover:underline mt-2 block"
-                  >
-                    View Source
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Backdrop */}
+      {/* Mobile Left Sidebar */}
       <div 
-        className={`fixed inset-0 bg-black/50 transition-opacity duration-300 ease-out z-30
-          ${isCitationsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-        onClick={() => setIsCitationsVisible(false)}
-      />
-
-      {/* Mobile Input Area */}
-      <div className="fixed bottom-0 left-0 right-0 bg-light-bg-primary dark:bg-dark-bg-primary border-t border-light-border dark:border-dark-border p-4 z-20">
-        <form 
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (currentInput.trim() && !isGenerating) {
-              try {
-                await onSubmit(currentInput);
-                setCurrentInput(''); // Clear input after successful submission
-                setAttachedFiles([]); // Clear attached files after successful submission
-              } catch (error) {
-                console.error('Error submitting message:', error);
-              } finally {
-                setIsGenerating(false);
-              }
-            }
-          }}
-          className="space-y-3"
-        >
-          {/* Display attached files above the input */}
-          {attachedFiles.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
-              {attachedFiles.map((file, index) => (
-                <div key={index} className="inline-flex items-center gap-2 px-3 py-1.5 bg-light-bg-secondary dark:bg-dark-bg-secondary rounded-lg max-w-[300px]">
-                  <svg className="w-4 h-4 shrink-0 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                  </svg>
-                  <span className="text-sm text-light-text-primary dark:text-dark-text-primary truncate">{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => onRemoveFile(index)}
-                    className="p-0.5 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-full text-light-text-secondary dark:text-dark-text-secondary"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="relative">
-            <textarea
-              ref={inputRef}
-              value={currentInput}
-              onChange={(e) => setCurrentInput(e.target.value)}
-              disabled={isGenerating}
-              placeholder={isGenerating ? "AI is generating..." : "Ask me anything..."}
-              rows={1}
-              style={{ resize: 'none' }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = 'auto';
-                const maxHeight = 5 * 24; // 5 lines * 24px (line height)
-                target.style.height = Math.min(target.scrollHeight, maxHeight) + 'px';
-              }}
-              className="w-full px-4 py-2 pr-20 rounded-lg border border-light-border dark:border-dark-border 
-                bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary 
-                focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 
-                text-base placeholder:text-light-text-tertiary dark:placeholder:text-dark-text-tertiary
-                min-h-[44px] max-h-[120px] overflow-y-auto leading-6"
-              autoFocus
-            />
-            
-            <div className="absolute right-2 top-2 flex items-center gap-2">
-              <button 
-                type="button"
-                disabled={isGenerating}
-                onClick={onMicClick}
-                className={`p-1.5 rounded transition-colors ${isRecording ? 'text-error' : 'text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary'} disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-              </button>
-              <button
-                type="submit"
-                disabled={!currentInput.trim() || isGenerating}
-                className="p-1.5 text-primary disabled:opacity-50"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 px-1">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <button 
-                  type="button" 
-                  className="text-light-text-secondary dark:text-dark-text-secondary p-1.5" 
-                  onClick={() => setIsAttachMenuOpen(!isAttachMenuOpen)}
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                  </svg>
-                </button>
-                {isAttachMenuOpen && (
-                  <div className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-50">
-                    <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">
-                      Connect to Drive
-                    </button>
-                    <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">
-                      Connect to DB
-                    </button>
-                    <button 
-                      onClick={handleUploadClick}
-                      className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
-                    >
-                      Upload from Device
-                    </button>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.txt"
-                  multiple
-                />
-              </div>
-              <button type="button" className="text-light-text-secondary dark:text-dark-text-secondary p-1.5">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 4 10 15 15 0 0 1-4 10A15 15 0 0 1 8 13a15 15 0 0 1 4-10z" />
-                </svg>
-              </button>
-              <button 
-                type="button" 
-                className="flex items-center gap-1 px-2.5 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-sm" 
-                onClick={() => setIsPersonaModalOpen(true)}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                {selectedPersona ? (
-                  <span>{selectedPersona.name}</span>
-                ) : (
-                  <span>Persona</span>
-                )}
-              </button>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
-                  className="flex items-center gap-1 px-2.5 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-sm"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                  <span>{selectedSource ? `${selectedSource.charAt(0).toUpperCase() + selectedSource.slice(1)}` : 'Source'}</span>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {isSourceMenuOpen && (
-                  <div className="absolute bottom-[120%] left-0 w-32 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1">
-                    <button 
-                      onClick={() => {
-                        onSourceSelect('internal');
-                        setIsSourceMenuOpen(false);
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
-                    >
-                      Internal
-                    </button>
-                    <button 
-                      onClick={() => {
-                        onSourceSelect('external');
-                        setIsSourceMenuOpen(false);
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
-                    >
-                      External
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </form>
-      </div>
-
-      {/* Mobile Sidebar Overlay */}
-      {!isSidebarCollapsed && (
-        <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setIsSidebarCollapsed(true)} />
-      )}
-
-      {/* Mobile Sidebar */}
-      <div className={`fixed top-0 left-0 h-full w-[280px] bg-light-bg-primary dark:bg-dark-bg-primary z-50 transform transition-transform duration-300 ${
-        isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
-      }`}>
+        className={`fixed inset-y-0 left-0 w-[85%] max-w-sm bg-light-bg-primary dark:bg-dark-bg-primary transform transition-transform duration-300 ease-out z-50
+          ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}`}
+      >
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
           <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
@@ -624,6 +358,240 @@ export default function MobileChatLayout({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Citations Drawer */}
+      <div 
+        className={`fixed inset-y-0 right-0 w-[85%] max-w-sm bg-light-bg-primary dark:bg-dark-bg-primary transform transition-transform duration-300 ease-out z-50
+          ${isCitationsVisible ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        <div className="h-full flex flex-col pt-14">
+          <div className="p-4 border-b border-light-border dark:border-dark-border flex justify-between items-center bg-light-bg-secondary dark:bg-dark-bg-secondary">
+            <h2 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary flex items-center gap-2">
+              <svg className="w-5 h-5 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+              </svg>
+              Source Pages ({citations.length})
+            </h2>
+            <button 
+              onClick={() => setIsCitationsVisible(false)}
+              className="p-2 hover:bg-red-500/10 rounded-lg transition-all duration-200 text-light-text-secondary dark:text-dark-text-secondary hover:text-red-500"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {citations.map(citation => (
+              <div key={citation.id} className="bg-light-bg-secondary dark:bg-dark-bg-secondary p-4 rounded-lg border border-light-border dark:border-dark-border">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="flex items-center gap-2 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
+                    <svg className="w-4 h-4 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                      <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                    </svg>
+                    Page {citation.pageNumber}
+                  </span>
+                  <span className="text-xs text-light-text-tertiary dark:text-dark-text-tertiary">
+                    {new Date(citation.timestamp).toLocaleString()}
+                  </span>
+                </div>
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary whitespace-pre-wrap">
+                    {citation.content}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Backdrop for sidebars */}
+      {(!isSidebarCollapsed || isCitationsVisible) && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={() => {
+            setIsSidebarCollapsed(true);
+            setIsCitationsVisible(false);
+          }}
+        />
+      )}
+
+      {/* Mobile Input Area */}
+      <div className="fixed bottom-0 left-0 right-0 bg-light-bg-primary dark:bg-dark-bg-primary border-t border-light-border dark:border-dark-border p-2 z-20">
+        <form 
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (currentInput.trim() && !isGenerating) {
+              try {
+                await onSubmit(currentInput);
+                setCurrentInput('');
+                setAttachedFiles([]);
+              } catch (error) {
+                console.error('Error submitting message:', error);
+              } finally {
+                setIsGenerating(false);
+              }
+            }
+          }}
+          className="space-y-2"
+        >
+          {/* Display attached files above the input */}
+          {attachedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {attachedFiles.map((file, index) => (
+                <div key={index} className="inline-flex items-center gap-2 px-3 py-1.5 bg-light-bg-secondary dark:bg-dark-bg-secondary rounded-lg max-w-[300px]">
+                  <svg className="w-4 h-4 shrink-0 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                  <span className="text-sm text-light-text-primary dark:text-dark-text-primary truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveFile(index)}
+                    className="p-0.5 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-full text-light-text-secondary dark:text-dark-text-secondary"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="relative">
+            <textarea
+              ref={inputRef}
+              value={currentInput}
+              onChange={(e) => setCurrentInput(e.target.value)}
+              disabled={isGenerating}
+              placeholder={isGenerating ? "AI is generating..." : "Ask me anything..."}
+              rows={1}
+              style={{ resize: 'none' }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                const maxHeight = 5 * 24;
+                target.style.height = Math.min(target.scrollHeight, maxHeight) + 'px';
+              }}
+              className="w-full px-3 py-2 pr-16 rounded-lg border border-light-border dark:border-dark-border 
+                bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary 
+                focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 
+                text-sm placeholder:text-light-text-tertiary dark:placeholder:text-dark-text-tertiary
+                min-h-[40px] max-h-[120px] overflow-y-auto leading-5"
+              autoFocus
+            />
+            
+            <div className="absolute right-2 top-2 flex items-center gap-1">
+              <button 
+                type="button"
+                disabled={isGenerating}
+                onClick={onMicClick}
+                className={`p-1.5 rounded transition-colors ${isRecording ? 'text-error' : 'text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary'} disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              </button>
+              <button
+                type="submit"
+                disabled={!currentInput.trim() || isGenerating}
+                className="p-1.5 text-primary disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 px-1">
+            <div className="relative">
+              <button 
+                type="button" 
+                className="text-light-text-secondary dark:text-dark-text-secondary p-1.5" 
+                onClick={() => setIsAttachMenuOpen(!isAttachMenuOpen)}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              </button>
+              {isAttachMenuOpen && (
+                <div className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-50">
+                  <button 
+                    onClick={handleUploadClick}
+                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
+                  >
+                    Upload from Device
+                  </button>
+                </div>
+              )}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                className="hidden"
+                accept=".pdf,.doc,.docx,.txt"
+                multiple
+              />
+            </div>
+
+            <button 
+              type="button" 
+              className="flex items-center gap-1 px-2 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-xs" 
+              onClick={() => setIsPersonaModalOpen(true)}
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {selectedPersona ? (
+                <span>{selectedPersona.name}</span>
+              ) : (
+                <span>Persona</span>
+              )}
+            </button>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
+                className="flex items-center gap-1 px-2 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-xs"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <span>{selectedSource ? `${selectedSource.charAt(0).toUpperCase() + selectedSource.slice(1)}` : 'Source'}</span>
+              </button>
+              {isSourceMenuOpen && (
+                <div className="absolute bottom-full left-0 mb-1 w-32 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1">
+                  <button 
+                    onClick={() => {
+                      onSourceSelect('internal');
+                      setIsSourceMenuOpen(false);
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-xs hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
+                  >
+                    Internal
+                  </button>
+                  <button 
+                    onClick={() => {
+                      onSourceSelect('external');
+                      setIsSourceMenuOpen(false);
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-xs hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
+                  >
+                    External
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </form>
+
+        <p className="text-[10px] text-light-text-tertiary dark:text-dark-text-tertiary text-center mt-1">
+          AI can make mistakes. Please verify the responses.
+        </p>
       </div>
 
       {/* Persona Modal */}

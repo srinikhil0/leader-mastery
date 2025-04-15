@@ -1,10 +1,19 @@
-import { useState, useRef, useEffect, RefObject } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Message, Citation, Conversation, Persona } from './types';
-import MobileChatLayout from './MobileChatLayout';
+import { Message, Conversation, Persona } from './types';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
 import SettingsModal from '../settings/SettingsModal';
 import { useAuth } from '../../hooks/useAuth';
 import ChatInput from './ChatInput';
+import { apiService } from '../../services/api';
+
+// Set up worker for react-pdf using ESM import with Vite
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 // Web Speech API type declarations
 interface SpeechRecognition extends EventTarget {
@@ -42,11 +51,23 @@ declare global {
   }
 }
 
-// Add API response types
-interface ApiCitation {
-  page_number: number;
-  document_name: string;
-  excerpt: string;
+interface FileUploadState {
+  file: File;
+  status: 'pending' | 'uploading' | 'completed' | 'failed';
+  collectionName?: string;
+  error?: string;
+}
+
+interface Citation {
+  id: string;
+  type: 'pdf' | 'web';
+  content: string;
+  pageNumber: number;
+  documentName: string;
+  title: string;
+  timestamp: Date;
+  url?: string;
+  isLoading?: boolean;
 }
 
 const ChatPage = () => {
@@ -67,7 +88,7 @@ const ChatPage = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<FileUploadState[]>([]);
   const [selectedSource, setSelectedSource] = useState<'internal' | 'external' | null>(null);
   const [experts, setExperts] = useState<string[]>([]);
   const [subExperts, setSubExperts] = useState<string[]>([]);
@@ -75,6 +96,8 @@ const ChatPage = () => {
   const [selectedSubExpert, setSelectedSubExpert] = useState<string | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [isCitationsVisible, setIsCitationsVisible] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pageScale, setPageScale] = useState(1.0);
 
   // Input ref for focus management
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -383,84 +406,104 @@ const ChatPage = () => {
     setIsNewChat(false);
     setIsGenerating(true);
 
-    // Add user message to chat with expert context and attachments
+    // Generate numeric user ID as expected by the API
+    const numericUserId = parseInt(currentUser?.uid?.replace(/\D/g, '') || '1', 10) || 1;
+
+    // Check for pending or uploading files
+    const pendingUploads = attachedFiles.filter(f => 
+      f.status === 'pending' || f.status === 'uploading'
+    );
+
+    if (pendingUploads.length > 0) {
+      const waitMessage: Message = {
+        id: Date.now().toString(),
+        content: 'Waiting for file uploads to complete...',
+        type: 'system',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, waitMessage]);
+
+      // Wait for all uploads to complete
+      await Promise.all(
+        pendingUploads.map(async (uploadState) => {
+          if (uploadState.status === 'pending') {
+            await handleFileUpload(uploadState.file);
+          }
+          // For uploading files, they're already in progress
+        })
+      );
+    }
+
+    // Add user message to chat
     const userMessage: Message = {
       id: Date.now().toString(),
       content: input.trim(),
       type: 'user',
       timestamp: new Date(),
       expert: selectedExpert || undefined,
-      attachments: attachedFiles.map(file => ({
-        type: file.type,
-        name: file.name,
-        size: file.size
-      }))
+      attachments: attachedFiles
+        .filter(f => f.status === 'completed')
+        .map(f => ({
+          type: f.file.type,
+          name: f.file.name,
+          size: f.file.size
+        }))
     };
 
     try {
-      // Handle file uploads first if there are any
-      if (attachedFiles.length > 0) {
-        for (const file of attachedFiles) {
-          const formData = new FormData();
-          formData.append('file', file);
-          
-          const uploadResponse = await fetch('/upload-pdf/', {
-            method: 'POST',
-            body: formData
-          });
-
-          if (!uploadResponse.ok) {
-            throw new Error('Failed to upload file');
-          }
-        }
-      }
-
       setMessages(prev => [...prev, userMessage]);
 
-      // Send message with expert context
-      const response = await fetch('/ask-question', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: input.trim(),
-          expert: selectedExpert || "",
-          sub_expert: selectedSubExpert || "",
-          session_id: Date.now().toString(),
-          attachments: attachedFiles.map(file => file.name) // Include file names in the request
-        })
-      });
+      // Get collection name from the first completed upload, or use default
+      const collectionName = attachedFiles.find(f => f.status === 'completed')?.collectionName || 'default';
 
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
+      // Get answer using retrieve_chunks endpoint
+      const response = await apiService.askQuestion(
+        input.trim(),
+        numericUserId,
+        collectionName
+      );
 
-      const data = await response.json();
-      
+      console.log('API Response:', response); // Debug log
+
       // Add AI response to chat
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: attachedFiles.length > 0 
-          ? `${data.response.split('\n\n')[0]}\n\nFiles processed: ${attachedFiles.map(file => file.name).join(', ')}\n\n${data.response.split('\n\n')[1]}`
-          : data.response,
+        content: Array.isArray(response.retrieved_docs) 
+          ? response.retrieved_docs.join('\n\n')
+          : typeof response.retrieved_docs === 'string' 
+            ? response.retrieved_docs
+            : JSON.stringify(response.retrieved_docs),
         type: 'ai',
         timestamp: new Date(),
         expert: selectedExpert || undefined
       };
       setMessages(prev => [...prev, aiMessage]);
 
-      // Update citations if any
-      if (data.citations && data.citations.length > 0) {
-        setCitations(data.citations.map((citation: ApiCitation) => ({
-          id: Date.now().toString(),
-          type: 'pdf',
-          content: citation.excerpt,
-          pageNumber: citation.page_number,
-          documentName: citation.document_name,
-          title: citation.document_name,
-          timestamp: new Date()
-        })));
+      // Update citations if any page numbers are returned
+      if (response.page_numbers && Array.isArray(response.page_numbers) && response.page_numbers.length > 0) {
+        const newCitations: Citation[] = response.page_numbers.map((pageNum, index) => {
+          let content = `Content from page ${pageNum}`;
+          
+          // Use page_contents if available
+          if (response.page_contents && response.page_contents[index]) {
+            content = response.page_contents[index];
+          }
+          // Otherwise try to get content from retrieved_docs if it's an array
+          else if (Array.isArray(response.retrieved_docs) && response.retrieved_docs[index]) {
+            content = response.retrieved_docs[index];
+          }
+          
+          return {
+            id: Date.now().toString() + pageNum,
+            type: 'pdf',
+            content,
+            pageNumber: pageNum,
+            documentName: collectionName,
+            title: collectionName,
+            timestamp: new Date()
+          };
+        });
+        setCitations(newCitations);
       }
 
       // Clear attached files after successful submission
@@ -474,12 +517,11 @@ const ChatPage = () => {
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
-      throw error; // Re-throw to prevent input clearing
     } finally {
       setIsGenerating(false);
-        if (inputRef.current) {
-          inputRef.current.focus();
-        }
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
   };
 
@@ -522,27 +564,55 @@ const ChatPage = () => {
   const handleFileUpload = async (file: File) => {
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append('file', file);
+    if (!file.type || !file.type.includes('pdf')) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        content: 'Only PDF files are allowed.',
+        type: 'system',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      return;
+    }
+
+    // Add file to state with pending status
+    setAttachedFiles(prev => [...prev, { file, status: 'pending' }]);
+    setIsAttachMenuOpen(false);
+
+    // Generate numeric user ID as expected by the API
+    const numericUserId = parseInt(currentUser?.uid?.replace(/\D/g, '') || '1', 10) || 1;
 
     try {
-      const response = await fetch('/upload-pdf/', {
-        method: 'POST',
-        body: formData
-      });
+      // Update status to uploading
+      setAttachedFiles(prev => 
+        prev.map(f => f.file === file ? { ...f, status: 'uploading' } : f)
+      );
 
-      if (!response.ok) {
-        throw new Error('Failed to upload file');
-      }
+      // Start upload
+      const response = await apiService.uploadPDF(file, numericUserId);
 
-      const data = await response.json();
-      console.log('File uploaded successfully:', data.file_hash);
-      
-      setAttachedFiles(prev => [...prev, file]);
-      setIsAttachMenuOpen(false); // Close the attach menu after successful upload
+      // Update status to completed with collection name
+      setAttachedFiles(prev => 
+        prev.map(f => f.file === file ? 
+          { ...f, status: 'completed', collectionName: response.coll_name } : f
+        )
+      );
     } catch (error) {
-      console.error('Error uploading file:', error);
-      // You might want to show an error message to the user here
+      // Update status to failed with error
+      setAttachedFiles(prev => 
+        prev.map(f => f.file === file ? 
+          { ...f, status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' } : f
+        )
+      );
+
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        content: `Failed to upload "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+        type: 'system',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
     }
   };
 
@@ -585,6 +655,19 @@ const ChatPage = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Update PDF file when attachedFiles changes
+  useEffect(() => {
+    const completedPdf = attachedFiles.find(f => f.status === 'completed')?.file;
+    if (completedPdf) {
+      setPdfFile(completedPdf);
+    }
+  }, [attachedFiles]);
+
+  // Function to handle PDF load success
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    console.log(`Loaded ${numPages} pages`); // Just log it for now
+  };
 
   // Left Sidebar Component
   const LeftSidebar = () => (
@@ -678,45 +761,110 @@ const ChatPage = () => {
 
   // Right Sidebar Component for Citations
   const RightSidebar = () => (
-    <div className={`fixed right-0 top-0 w-80 h-screen bg-light-bg-primary dark:bg-dark-bg-primary 
-      transform transition-all duration-300 ease-out shadow-lg border-l border-light-border dark:border-dark-border
-      ${isCitationsVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}>
+    <div 
+      className={`fixed right-0 top-0 w-[600px] h-screen bg-light-bg-primary dark:bg-dark-bg-primary 
+        transform transition-all duration-300 ease-out shadow-lg border-l border-light-border dark:border-dark-border
+        ${isCitationsVisible ? 'translate-x-0' : 'translate-x-full'}`}
+    >
       <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-light-border dark:border-dark-border flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">
-            Citations ({citations.length})
+        <div className="p-4 border-b border-light-border dark:border-dark-border flex justify-between items-center bg-light-bg-secondary dark:bg-dark-bg-secondary">
+          <h2 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary flex items-center gap-2">
+            <svg className="w-5 h-5 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            Source Pages ({citations.length})
           </h2>
-        <button 
-            onClick={() => setIsCitationsVisible(false)} 
-          className="text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-        {citations.length > 0 && (
-      <div className="p-4 space-y-4 overflow-y-auto h-[calc(100vh-65px)]">
-        {citations.map(citation => (
-          <div key={citation.id} className="bg-light-bg-secondary dark:bg-dark-bg-secondary p-4 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
-                {citation.type === 'pdf' ? `PDF - Page ${citation.pageNumber}` : 'Web Source'}
-              </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPageScale(scale => Math.max(0.5, scale - 0.1))}
+              className="p-2 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-all duration-200 text-light-text-secondary dark:text-dark-text-secondary hover:text-primary group"
+              title="Zoom out"
+            >
+              <svg className="w-5 h-5 transform group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+              </svg>
+            </button>
+            <div className="px-2 py-1 bg-light-bg-tertiary dark:bg-dark-bg-tertiary rounded-lg text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary">
+              {Math.round(pageScale * 100)}%
             </div>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">{citation.content}</p>
-            {citation.url && (
-              <a 
-                href={citation.url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary text-sm hover:underline mt-2 block"
-              >
-                View Source
-              </a>
-            )}
+            <button
+              onClick={() => setPageScale(scale => Math.min(2.0, scale + 0.1))}
+              className="p-2 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-all duration-200 text-light-text-secondary dark:text-dark-text-secondary hover:text-primary group"
+              title="Zoom in"
+            >
+              <svg className="w-5 h-5 transform group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+            <div className="w-px h-6 bg-light-border dark:bg-dark-border mx-1"></div>
+            <button 
+              onClick={() => setIsCitationsVisible(false)}
+              className="p-2 hover:bg-red-500/10 rounded-lg transition-all duration-200 text-light-text-secondary dark:text-dark-text-secondary hover:text-red-500 group"
+              title="Close citations"
+            >
+              <svg className="w-5 h-5 transform group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-        ))}
+        </div>
+        {citations.length > 0 ? (
+          <div className="p-4 space-y-8 overflow-y-auto h-[calc(100vh-65px)] custom-scrollbar">
+            {citations.map(citation => (
+              <div key={citation.id} className="space-y-4">
+                <div className="bg-light-bg-secondary dark:bg-dark-bg-secondary p-4 rounded-lg border border-light-border dark:border-dark-border">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="flex items-center gap-2 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
+                      <svg className="w-4 h-4 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                      </svg>
+                      Page {citation.pageNumber}
+                    </span>
+                    <span className="text-xs text-light-text-tertiary dark:text-dark-text-tertiary">
+                      {new Date(citation.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary whitespace-pre-wrap">
+                      {citation.content}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* PDF Page Render */}
+                {pdfFile && (
+                  <div className="flex justify-center bg-light-bg-secondary dark:bg-dark-bg-secondary p-4 rounded-lg border border-light-border dark:border-dark-border shadow-sm">
+                    <Document
+                      file={pdfFile}
+                      onLoadSuccess={onDocumentLoadSuccess}
+                      loading={
+                        <div className="flex items-center justify-center h-[500px]">
+                          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
+                        </div>
+                      }
+                    >
+                      <Page
+                        pageNumber={citation.pageNumber}
+                        scale={pageScale}
+                        loading={
+                          <div className="flex items-center justify-center h-[500px]">
+                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
+                          </div>
+                        }
+                      />
+                    </Document>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-[calc(100vh-65px)] text-light-text-tertiary dark:text-dark-text-tertiary">
+            <svg className="w-16 h-16 mb-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            <p className="text-lg font-medium">No citations available</p>
+            <p className="text-sm">Citations will appear here when available</p>
           </div>
         )}
       </div>
@@ -857,7 +1005,6 @@ const ChatPage = () => {
   // Add handler functions for message interactions
   const handleFeedback = (messageId: string, isPositive: boolean) => {
     console.log(`Feedback for message ${messageId}: ${isPositive ? 'positive' : 'negative'}`);
-    // Here you can implement the API call to save feedback
   };
 
   const handleCopyMessage = (messageId: string, content: string) => {
@@ -866,7 +1013,7 @@ const ChatPage = () => {
         setCopiedMessageId(messageId);
         setTimeout(() => {
           setCopiedMessageId(null);
-        }, 2000); // Reset after 2 seconds
+        }, 2000);
       })
       .catch(err => {
         console.error('Failed to copy message:', err);
@@ -911,7 +1058,7 @@ const ChatPage = () => {
         </div>
       )}
 
-      <div className="max-w-[50%]">
+      <div className="max-w-[80%]">
         <div
           className={`rounded-lg p-4 whitespace-pre-wrap break-words ${
             message.type === 'user'
@@ -994,49 +1141,71 @@ const ChatPage = () => {
   // If mobile, use mobile layout
   if (isMobile) {
     return (
-      <MobileChatLayout
-        messages={messages}
-        conversations={conversations}
-        citations={citations}
-        setMessages={setMessages}
-        setConversations={setConversations}
-        currentInput={currentInput}
-        setCurrentInput={setCurrentInput}
-        isNewChat={isNewChat}
-        setIsNewChat={setIsNewChat}
-        isGenerating={isGenerating}
-        setIsGenerating={setIsGenerating}
-        isSidebarCollapsed={isSidebarCollapsed}
-        setIsSidebarCollapsed={setIsSidebarCollapsed}
-        isPersonaModalOpen={isPersonaModalOpen}
-        setIsPersonaModalOpen={setIsPersonaModalOpen}
-        isAttachMenuOpen={isAttachMenuOpen}
-        setIsAttachMenuOpen={setIsAttachMenuOpen}
-        isSourceMenuOpen={isSourceMenuOpen}
-        setIsSourceMenuOpen={setIsSourceMenuOpen}
-        isRecording={isRecording}
-        inputRef={inputRef as RefObject<HTMLTextAreaElement>}
-        onFileUpload={handleFileUpload}
-        onPersonaSelect={(persona) => {
-          setSelectedPersona(persona);
-          setSelectedExpert(persona.name);
-          setSelectedSubExpert(null);
-          setIsPersonaModalOpen(false);
-        }}
-        selectedPersona={selectedPersona}
-        attachedFiles={attachedFiles}
-        onRemoveFile={handleRemoveFile}
-        setAttachedFiles={setAttachedFiles}
-        selectedSource={selectedSource}
-        onSourceSelect={handleSourceSelect}
-        experts={experts}
-        subExperts={subExperts}
-        selectedExpert={selectedExpert}
-        selectedSubExpert={selectedSubExpert}
-        setSelectedSubExpert={setSelectedSubExpert}
-        onSubmit={handleSubmit}
-        onMicClick={handleMicClick}
-      />
+      <div className="flex flex-col h-screen bg-light-bg-tertiary dark:bg-dark-bg-tertiary">
+        {/* Mobile header */}
+        <div className="flex items-center justify-between p-4 bg-light-bg-primary dark:bg-dark-bg-primary border-b border-light-border dark:border-dark-border">
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="p-2 rounded-lg hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <img 
+            src="./leader-mastery-emblem-text.png" 
+            alt="Leader Mastery"
+            className="h-8"
+          />
+          <div className="w-10" /> {/* Spacer */}
+        </div>
+
+        {/* Mobile content */}
+        <div className="flex-1 overflow-y-auto">
+          {isNewChat ? (
+            <NewChatWelcome />
+          ) : (
+            <div ref={chatAreaRef} className="p-4 space-y-4">
+              {messages.map(message => (
+                <MessageComponent key={message.id} message={message} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Mobile input */}
+        <div className="border-t border-light-border dark:border-dark-border bg-light-bg-primary dark:bg-dark-bg-primary p-4">
+          <ChatInput
+            inputRef={inputRef}
+            currentInput={currentInput}
+            setCurrentInput={setCurrentInput}
+            isGenerating={isGenerating}
+            isRecording={isRecording}
+            onMicClick={handleMicClick}
+            onSubmit={handleSubmit}
+            onAttachClick={handleUploadClick}
+            onPersonaClick={() => setIsPersonaModalOpen(true)}
+            onSourceClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
+            onSourceSelect={handleSourceSelect}
+            isSourceMenuOpen={isSourceMenuOpen}
+            isAttachMenuOpen={isAttachMenuOpen}
+            isPersonaMenuOpen={isPersonaModalOpen}
+            onFileUpload={handleFileUpload}
+            attachedFiles={attachedFiles}
+            onRemoveFile={handleRemoveFile}
+            selectedSource={selectedSource}
+            selectedPersona={selectedPersona}
+          />
+        </div>
+
+        {/* Mobile modals */}
+        <PersonaModal />
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          user={currentUser}
+        />
+      </div>
     );
   }
 
@@ -1046,7 +1215,7 @@ const ChatPage = () => {
       <LeftSidebar />
       
       <main className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-out
-        ${isCitationsVisible ? 'mr-80' : 'mr-0'}`}>
+        ${isCitationsVisible ? 'mr-[600px]' : 'mr-0'}`}>
         {isNewChat ? (
           <>
             <NewChatWelcome />

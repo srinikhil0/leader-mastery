@@ -7,25 +7,11 @@ export default defineConfig({
   base: '/leader-mastery/',
   server: {
     proxy: {
-      '/experts': {
-        target: 'http://localhost:3001',
+      '/api': {
+        target: 'http://localhost:8000',
         changeOrigin: true,
-        secure: false
-      },
-      '/sub_experts': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false
-      },
-      '/upload-pdf': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false
-      },
-      '/ask-question': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
   }

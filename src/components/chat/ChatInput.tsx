@@ -1,6 +1,13 @@
 import React, { RefObject, Dispatch, SetStateAction, useRef, FormEvent, KeyboardEvent } from 'react';
 import { Persona } from './types';
 
+interface FileUploadState {
+  file: File;
+  status: 'pending' | 'uploading' | 'completed' | 'failed';
+  collectionName?: string;
+  error?: string;
+}
+
 interface ChatInputProps {
   inputRef: RefObject<HTMLTextAreaElement | null>;
   currentInput: string;
@@ -16,9 +23,9 @@ interface ChatInputProps {
   isSourceMenuOpen: boolean;
   isAttachMenuOpen: boolean;
   isPersonaMenuOpen: boolean;
-  onFileUpload: (file: File) => void;
-  attachedFiles: File[];
-  onRemoveFile: (fileIndex: number) => void;
+  onFileUpload: (file: File) => Promise<void>;
+  attachedFiles: FileUploadState[];
+  onRemoveFile: (index: number) => void;
   selectedSource: 'internal' | 'external' | null;
   selectedPersona: Persona | null;
   availablePersonas?: Persona[];
@@ -123,7 +130,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 <svg className="w-4 h-4 shrink-0 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                 </svg>
-                <span className="text-sm text-light-text-primary dark:text-dark-text-primary truncate">{file.name}</span>
+                <span className="text-sm text-light-text-primary dark:text-dark-text-primary truncate">{file.file.name}</span>
                 <button
                   type="button"
                   onClick={() => onRemoveFile(index)}

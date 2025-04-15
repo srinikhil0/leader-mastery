@@ -34,3 +34,6 @@ yarn-error.log*
 *.sw?
 
 multi_pdf_api_contract.json
+
+__pycache__
+*_db

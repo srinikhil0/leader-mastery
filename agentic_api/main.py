@@ -17,9 +17,19 @@ from fastapi import FastAPI
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from io import BytesIO
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 client = Groq()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 # Initialize graph once
 nodes = Agent()
