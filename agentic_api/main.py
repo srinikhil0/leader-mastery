@@ -11,25 +11,26 @@ from langgraph.graph import END, StateGraph
 from groq import Groq
 import chromadb
 import os
+from fastapi.middleware.cors import CORSMiddleware
 
 from typing import Union, List
 from fastapi import FastAPI
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from io import BytesIO
-from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
-client = Groq()
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Frontend URL
+    allow_origins=["http://localhost:5173"],  # Your frontend origin
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+client = Groq()
 
 # Initialize graph once
 nodes = Agent()
@@ -50,7 +51,7 @@ compiled_graph = agentic_rag.compile()
 
 @app.post("/upload_pdf")
 async def upload_pdf(
-    user_id: int = Form(...),  # explicitly from query params
+    user_id: str = Form(...),  # explicitly from query params
     file_pdf: UploadFile = File(...)
 ):
     print("Inside upload pdf")
@@ -92,7 +93,7 @@ async def upload_pdf(
 @app.post("/retrieve_chunks/")
 async def retrieve_chunks(
     collection_name: str = Form(...),
-    user_id : int = Form(...),
+    user_id : str = Form(...),
     question_text: str = Form(None),
     question_audio: UploadFile = File(None)
 ):
@@ -116,8 +117,3 @@ async def retrieve_chunks(
         "retrieved_docs": response.get("generation", []),
         "page_numbers": set(response.get("page_numbers", []))
     }
-
-
-
-
-

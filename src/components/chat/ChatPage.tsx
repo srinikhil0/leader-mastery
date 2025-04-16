@@ -89,6 +89,7 @@ const ChatPage = () => {
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<FileUploadState[]>([]);
+  const [currentCollectionName, setCurrentCollectionName] = useState<string>('default');
   const [selectedSource, setSelectedSource] = useState<'internal' | 'external' | null>(null);
   const [experts, setExperts] = useState<string[]>([]);
   const [subExperts, setSubExperts] = useState<string[]>([]);
@@ -399,15 +400,12 @@ const ChatPage = () => {
     return iconMap[normalizedExpert] || '👤';
   };
 
-  // Update handleSubmit to include session context
+  // Update handleSubmit to use currentCollectionName
   const handleSubmit = async (input: string) => {
     if (!input.trim() && !attachedFiles.length) return;
 
     setIsNewChat(false);
     setIsGenerating(true);
-
-    // Generate numeric user ID as expected by the API
-    const numericUserId = parseInt(currentUser?.uid?.replace(/\D/g, '') || '1', 10) || 1;
 
     // Check for pending or uploading files
     const pendingUploads = attachedFiles.filter(f => 
@@ -453,14 +451,11 @@ const ChatPage = () => {
     try {
       setMessages(prev => [...prev, userMessage]);
 
-      // Get collection name from the first completed upload, or use default
-      const collectionName = attachedFiles.find(f => f.status === 'completed')?.collectionName || 'default';
-
       // Get answer using retrieve_chunks endpoint
       const response = await apiService.askQuestion(
         input.trim(),
-        numericUserId,
-        collectionName
+        currentCollectionName,
+        currentUser?.uid || ''
       );
 
       console.log('API Response:', response); // Debug log
@@ -498,8 +493,8 @@ const ChatPage = () => {
             type: 'pdf',
             content,
             pageNumber: pageNum,
-            documentName: collectionName,
-            title: collectionName,
+            documentName: currentCollectionName,
+            title: currentCollectionName,
             timestamp: new Date()
           };
         });
@@ -579,9 +574,6 @@ const ChatPage = () => {
     setAttachedFiles(prev => [...prev, { file, status: 'pending' }]);
     setIsAttachMenuOpen(false);
 
-    // Generate numeric user ID as expected by the API
-    const numericUserId = parseInt(currentUser?.uid?.replace(/\D/g, '') || '1', 10) || 1;
-
     try {
       // Update status to uploading
       setAttachedFiles(prev => 
@@ -589,7 +581,7 @@ const ChatPage = () => {
       );
 
       // Start upload
-      const response = await apiService.uploadPDF(file, numericUserId);
+      const response = await apiService.uploadPDF(file, currentUser?.uid || '');
 
       // Update status to completed with collection name
       setAttachedFiles(prev => 
@@ -597,6 +589,9 @@ const ChatPage = () => {
           { ...f, status: 'completed', collectionName: response.coll_name } : f
         )
       );
+      
+      // Update current collection name
+      setCurrentCollectionName(response.coll_name);
     } catch (error) {
       // Update status to failed with error
       setAttachedFiles(prev => 

@@ -29,27 +29,30 @@ interface RetrieveChunksResponse {
 
 export const apiService = {
   // Upload PDF file
-  async uploadPDF(file: File, userId: number): Promise<UploadPDFResponse> {
+  async uploadPDF(file: File, userId: string): Promise<UploadPDFResponse> {
+    console.log('Starting PDF upload process...');
+    console.log('File details:', { name: file.name, type: file.type, size: file.size });
+    console.log('Using Firebase User ID:', userId);
+
     // Validate file type
     if (!file.type || !file.type.includes('pdf')) {
+      console.error('Invalid file type:', file.type);
       throw new Error('Only PDF files are allowed');
     }
 
-    // Generate a numeric user ID from the string UID
-    // This ensures we always have a valid integer ID
-    const numericUserId = Math.abs(userId) || 1;
-
     const formData = new FormData();
     formData.append('file_pdf', file);
-    formData.append('user_id', numericUserId.toString());
+    formData.append('user_id', userId);
 
     try {
+      console.log('Sending upload request to:', `${API_BASE_URL}/upload_pdf`);
       const response = await axios.post(`${API_BASE_URL}/upload_pdf`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
         withCredentials: true
       });
+      console.log('Upload successful:', response.data);
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -65,21 +68,26 @@ export const apiService = {
   },
 
   // Ask a question about the document
-  async askQuestion(question: string, userId: number, collectionName: string): Promise<RetrieveChunksResponse> {
-    const numericUserId = Math.abs(userId) || 1;
+  async askQuestion(question: string, collectionName: string, userId: string): Promise<RetrieveChunksResponse> {
+    console.log('Starting question process...');
+    console.log('Question:', question);
+    console.log('Using Firebase User ID:', userId);
+    console.log('Collection name:', collectionName);
 
     const formData = new FormData();
     formData.append('question_text', question);
-    formData.append('user_id', numericUserId.toString());
     formData.append('collection_name', collectionName);
+    formData.append('user_id', userId);
 
     try {
+      console.log('Sending question request to:', `${API_BASE_URL}/retrieve_chunks`);
       const response = await axios.post(`${API_BASE_URL}/retrieve_chunks`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
         withCredentials: true
       });
+      console.log('Question response received:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error asking question:', error);
@@ -88,15 +96,24 @@ export const apiService = {
   },
 
   // Retrieve document chunks (without a question)
-  async retrieveChunks(collectionName: string, userId: number): Promise<RetrieveChunksResponse> {
-    const numericUserId = Math.abs(userId) || 1;
+  async retrieveChunks(collectionName: string, userId: string): Promise<RetrieveChunksResponse> {
+    console.log('Starting chunk retrieval process...');
+    console.log('Collection name:', collectionName);
+    console.log('Using Firebase User ID:', userId);
 
     const formData = new FormData();
     formData.append('collection_name', collectionName);
-    formData.append('user_id', numericUserId.toString());
+    formData.append('user_id', userId);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/retrieve_chunks`, formData);
+      console.log('Sending chunk retrieval request to:', `${API_BASE_URL}/retrieve_chunks`);
+      const response = await axios.post(`${API_BASE_URL}/retrieve_chunks`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        withCredentials: true
+      });
+      console.log('Chunk retrieval successful:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error retrieving chunks:', error);
