@@ -1058,7 +1058,7 @@ const ChatPage = () => {
         </div>
       )}
 
-      <div className="max-w-[80%]">
+      <div className="max-w-[90%]">
         <div
           className={`rounded-lg p-4 whitespace-pre-wrap break-words ${
             message.type === 'user'
