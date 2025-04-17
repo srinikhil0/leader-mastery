@@ -1,13 +1,6 @@
 import React, { RefObject, Dispatch, SetStateAction, useRef, FormEvent, KeyboardEvent } from 'react';
 import { Persona } from './types';
 
-interface FileUploadState {
-  file: File;
-  status: 'pending' | 'uploading' | 'completed' | 'failed';
-  collectionName?: string;
-  error?: string;
-}
-
 interface ChatInputProps {
   inputRef: RefObject<HTMLTextAreaElement | null>;
   currentInput: string;
@@ -24,8 +17,9 @@ interface ChatInputProps {
   isAttachMenuOpen: boolean;
   isPersonaMenuOpen: boolean;
   onFileUpload: (file: File) => Promise<void>;
-  attachedFiles: FileUploadState[];
-  onRemoveFile: (index: number) => void;
+  stagedFile: File | null;
+  onRemoveFile: () => void;
+  isFileProcessing?: boolean;
   selectedSource: 'internal' | 'external' | null;
   selectedPersona: Persona | null;
   availablePersonas?: Persona[];
@@ -48,8 +42,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
   isAttachMenuOpen,
   isPersonaMenuOpen,
   onFileUpload,
-  attachedFiles,
+  stagedFile,
   onRemoveFile,
+  isFileProcessing = false,
   selectedSource,
   selectedPersona,
   availablePersonas,
@@ -59,10 +54,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      Array.from(files).forEach(file => {
-        onFileUpload(file);
-      });
+    if (files && files.length > 0) {
+      onFileUpload(files[0]);
+      onAttachClick();
     }
   };
 
@@ -98,7 +92,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
     if (isGenerating) return;
 
     const trimmedInput = currentInput.trim();
-    if (!trimmedInput && !attachedFiles.length) return;
+    if (!trimmedInput && !stagedFile) return;
 
     try {
       await onSubmit(trimmedInput);
@@ -123,25 +117,32 @@ const ChatInput: React.FC<ChatInputProps> = ({
   return (
     <div className="border-t border-light-border dark:border-dark-border px-4 py-2">
       <form onSubmit={handleSubmit} className="space-y-2">
-        {attachedFiles.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {attachedFiles.map((file, index) => (
-              <div key={index} className="inline-flex items-center gap-2 px-3 py-1.5 bg-light-bg-secondary dark:bg-dark-bg-secondary rounded-lg max-w-[300px]">
-                <svg className="w-4 h-4 shrink-0 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+        {stagedFile && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-800/30 backdrop-blur-sm rounded-lg">
+              <div className="w-8 h-8 bg-rose-500/10 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
-                <span className="text-sm text-light-text-primary dark:text-dark-text-primary truncate">{file.file.name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-white">{stagedFile.name}</span>
+                <span className="text-xs bg-rose-500/10 text-rose-500 px-2 py-0.5 rounded">PDF</span>
+              </div>
+              {isFileProcessing ? (
+                <span className="text-sm text-gray-400">Reading documents</span>
+              ) : (
                 <button
                   type="button"
-                  onClick={() => onRemoveFile(index)}
-                  className="p-0.5 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-full text-light-text-secondary dark:text-dark-text-secondary"
+                  onClick={onRemoveFile}
+                  className="p-1 hover:bg-gray-700/50 rounded-lg transition-colors text-gray-400 hover:text-white"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
         )}
         <div className="relative">
@@ -181,7 +182,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 type="submit"
                 disabled={isGenerating}
                 className={`p-2 rounded-lg transition-colors flex items-center justify-center
-                  ${(!currentInput.trim() && !attachedFiles.length) || isGenerating
+                  ${(!currentInput.trim() && !stagedFile) || isGenerating
                     ? 'text-light-text-tertiary dark:text-dark-text-tertiary'
                     : 'text-primary hover:text-primary/80'
                   }`}

@@ -37,3 +37,7 @@ multi_pdf_api_contract.json
 
 __pycache__
 *_db
+serviceAccountKey.json
+
+firestore.rules
+storage.rules

@@ -3,12 +3,16 @@ export interface Message {
   content: string;
   type: 'user' | 'ai' | 'system';
   timestamp: Date;
+  expert?: string;
+  sessionId?: string;
+  userId?: string;
   attachments?: Array<{
     type: string;
     name: string;
     size: number;
+    url?: string;
   }>;
-  expert?: string;
+  citations?: Citation[];
 }
 
 export interface Conversation {
@@ -16,6 +20,8 @@ export interface Conversation {
   title: string;
   lastMessage: string;
   timestamp: Date;
+  sessionId: string;
+  userId: string;
 }
 
 export interface Citation {
@@ -33,4 +39,26 @@ export interface Persona {
   name: string;
   description: string;
   icon: string;
+}
+
+export interface Session {
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: Date;
+  lastMessage: string;
+  isActive: boolean;
+  files?: Record<string, {
+    storagePath: string;
+    collectionName: string;
+    uploadedAt: Date;
+  }>;
+}
+
+export interface FileUploadState {
+  file: File;
+  status: 'pending' | 'uploading' | 'completed' | 'error';
+  collectionName?: string;
+  error?: string;
+  url?: string;
 } 

@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Message, Conversation, Persona } from './types';
+import { useAuth } from '../../hooks/useAuth';
+import { Message, Conversation, Persona, FileUploadState, Citation } from './types';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 import SettingsModal from '../settings/SettingsModal';
-import { useAuth } from '../../hooks/useAuth';
-import ChatInput from './ChatInput';
 import { apiService } from '../../services/api';
+import { firebaseService } from '../../services/firebaseService';
+import ChatInput from './ChatInput';
 
 // Set up worker for react-pdf using ESM import with Vite
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -51,23 +52,12 @@ declare global {
   }
 }
 
-interface FileUploadState {
-  file: File;
-  status: 'pending' | 'uploading' | 'completed' | 'failed';
-  collectionName?: string;
-  error?: string;
-}
-
-interface Citation {
-  id: string;
-  type: 'pdf' | 'web';
-  content: string;
-  pageNumber: number;
-  documentName: string;
-  title: string;
-  timestamp: Date;
-  url?: string;
-  isLoading?: boolean;
+interface RetrieveChunksResponse {
+  question: string;
+  retrieved_docs: string;
+  page_numbers: number[];
+  page_contents?: string[];
+  answer?: string;
 }
 
 const ChatPage = () => {
@@ -83,12 +73,12 @@ const ChatPage = () => {
   const [isSourceMenuOpen, setIsSourceMenuOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isFileProcessing, setIsFileProcessing] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
-  const [attachedFiles, setAttachedFiles] = useState<FileUploadState[]>([]);
   const [currentCollectionName, setCurrentCollectionName] = useState<string>('default');
   const [selectedSource, setSelectedSource] = useState<'internal' | 'external' | null>(null);
   const [experts, setExperts] = useState<string[]>([]);
@@ -98,7 +88,9 @@ const ChatPage = () => {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [isCitationsVisible, setIsCitationsVisible] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [pageScale, setPageScale] = useState(1.0);
+  const [stagedFile, setStagedFile] = useState<File | null>(null);
 
   // Input ref for focus management
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -113,6 +105,25 @@ const ChatPage = () => {
     "How to handle difficult conversations?",
     "Tips for better time management"
   ];
+
+  // Create new session when component mounts or user changes
+  useEffect(() => {
+    const createInitialSession = async () => {
+      if (!currentUser) return;
+      
+      try {
+        console.log('[Chat] Creating initial session');
+        const sessionId = await firebaseService.createSession(currentUser.uid, 'New Chat');
+        setCurrentSessionId(sessionId);
+        setIsNewChat(true);
+        setMessages([]);
+      } catch (error) {
+        console.error('[Chat] Error creating initial session:', error);
+      }
+    };
+
+    createInitialSession();
+  }, [currentUser]);
 
   // Add focus management with proper dependencies
   useEffect(() => {
@@ -400,111 +411,99 @@ const ChatPage = () => {
     return iconMap[normalizedExpert] || '👤';
   };
 
-  // Update handleSubmit to use currentCollectionName
+  // Handle file selection
+  const handleFileUpload = async (file: File) => {
+    if (!currentUser) return;
+    setStagedFile(file);
+  };
+
+  // Handle submit with file upload
   const handleSubmit = async (input: string) => {
-    if (!input.trim() && !attachedFiles.length) return;
+    if (!currentUser) return;
+    if (!input.trim() && !stagedFile) return;
 
-    setIsNewChat(false);
+    console.log('[Chat] Starting submission');
     setIsGenerating(true);
+    setCurrentInput('');
 
-    // Check for pending or uploading files
-    const pendingUploads = attachedFiles.filter(f => 
-      f.status === 'pending' || f.status === 'uploading'
-    );
-
-    if (pendingUploads.length > 0) {
-      const waitMessage: Message = {
-        id: Date.now().toString(),
-        content: 'Waiting for file uploads to complete...',
-        type: 'system',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, waitMessage]);
-
-      // Wait for all uploads to complete
-      await Promise.all(
-        pendingUploads.map(async (uploadState) => {
-          if (uploadState.status === 'pending') {
-            await handleFileUpload(uploadState.file);
-          }
-          // For uploading files, they're already in progress
-        })
-      );
-    }
-
-    // Add user message to chat
+    // Create user message immediately
     const userMessage: Message = {
       id: Date.now().toString(),
       content: input.trim(),
       type: 'user',
       timestamp: new Date(),
-      expert: selectedExpert || undefined,
-      attachments: attachedFiles
-        .filter(f => f.status === 'completed')
-        .map(f => ({
-          type: f.file.type,
-          name: f.file.name,
-          size: f.file.size
-        }))
+      sessionId: currentSessionId || undefined,
+      attachments: stagedFile ? [{
+        name: stagedFile.name,
+        type: stagedFile.type,
+        size: stagedFile.size
+      }] : undefined
     };
 
+    // Add message to chat immediately and clear staged file
+    setMessages(prev => [...prev, userMessage]);
+    setStagedFile(null);
+
     try {
-      setMessages(prev => [...prev, userMessage]);
+      let uploadState: FileUploadState | null = null;
+      
+      // If there was a staged file, upload it
+      if (stagedFile) {
+        console.log('[Chat] Uploading staged file:', stagedFile.name);
+        setIsFileProcessing(true);
+        uploadState = await firebaseService.uploadFile(currentUser.uid, stagedFile, currentSessionId || undefined);
+        
+        if (uploadState.status === 'error') {
+          throw new Error(uploadState.error || 'Failed to upload file');
+        }
+        
+        if (uploadState.status === 'completed') {
+          setCurrentCollectionName(uploadState.collectionName || '');
+        }
+      }
+
+      // Save the message to Firebase
+      await saveMessageToFirebase(userMessage);
 
       // Get answer using retrieve_chunks endpoint
+      console.log('[Chat] Calling API with input:', input.trim());
       const response = await apiService.askQuestion(
         input.trim(),
-        currentCollectionName,
-        currentUser?.uid || ''
-      );
-
-      console.log('API Response:', response); // Debug log
+        uploadState?.collectionName || currentCollectionName || '',
+        currentUser.uid
+      ) as RetrieveChunksResponse;
+      
+      console.log('[Chat] Received API response:', response);
 
       // Add AI response to chat
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: Array.isArray(response.retrieved_docs) 
-          ? response.retrieved_docs.join('\n\n')
-          : typeof response.retrieved_docs === 'string' 
-            ? response.retrieved_docs
-            : JSON.stringify(response.retrieved_docs),
+        content: response.retrieved_docs || response.answer || 'No answer available',
         type: 'ai',
         timestamp: new Date(),
-        expert: selectedExpert || undefined
+        expert: selectedPersona?.name || undefined,
+        sessionId: currentSessionId || undefined,
+        citations: response.page_numbers ? response.page_numbers.map((pageNum, index) => ({
+          id: `${Date.now()}-${index}`,
+          type: 'pdf',
+          content: response.page_contents?.[index] || `Content from page ${pageNum}`,
+          pageNumber: pageNum,
+          documentName: currentCollectionName || '',
+          title: currentCollectionName || '',
+          timestamp: new Date()
+        })) : undefined
       };
+
+      console.log('[Chat] Saving AI message:', aiMessage);
+      await saveMessageToFirebase(aiMessage);
       setMessages(prev => [...prev, aiMessage]);
 
-      // Update citations if any page numbers are returned
-      if (response.page_numbers && Array.isArray(response.page_numbers) && response.page_numbers.length > 0) {
-        const newCitations: Citation[] = response.page_numbers.map((pageNum, index) => {
-          let content = `Content from page ${pageNum}`;
-          
-          // Use page_contents if available
-          if (response.page_contents && response.page_contents[index]) {
-            content = response.page_contents[index];
-          }
-          // Otherwise try to get content from retrieved_docs if it's an array
-          else if (Array.isArray(response.retrieved_docs) && response.retrieved_docs[index]) {
-            content = response.retrieved_docs[index];
-          }
-          
-          return {
-            id: Date.now().toString() + pageNum,
-            type: 'pdf',
-            content,
-            pageNumber: pageNum,
-            documentName: currentCollectionName,
-            title: currentCollectionName,
-            timestamp: new Date()
-          };
-        });
-        setCitations(newCitations);
+      // Update citations if any
+      if (aiMessage.citations && Array.isArray(aiMessage.citations)) {
+        setCitations(prev => [...prev, ...aiMessage.citations as Citation[]]);
       }
-
-      // Clear attached files after successful submission
-      setAttachedFiles([]);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('[Chat] Error in handleSubmit:', error);
       const errorMessage: Message = {
         id: Date.now().toString(),
         content: 'Sorry, I encountered an error while processing your request. Please try again.',
@@ -521,12 +520,20 @@ const ChatPage = () => {
   };
 
   // Handle new chat
-  const startNewChat = () => {
-    setMessages([]);
-    setCurrentInput('');
-    setIsNewChat(true);
-    setCitations([]);
-    inputRef.current?.focus();
+  const startNewChat = async () => {
+    if (!currentUser) return;
+    
+    try {
+      const sessionId = await firebaseService.createSession(currentUser.uid, 'New Chat');
+      setCurrentSessionId(sessionId);
+      setMessages([]);
+      setCurrentInput('');
+      setIsNewChat(true);
+      setCitations([]);
+      inputRef.current?.focus();
+    } catch (error) {
+      console.error('Error creating new session:', error);
+    }
   };
 
   // Handle conversation selection
@@ -556,63 +563,63 @@ const ChatPage = () => {
     setIsAttachMenuOpen(!isAttachMenuOpen);
   };
 
-  const handleFileUpload = async (file: File) => {
-    if (!file) return;
-
-    if (!file.type || !file.type.includes('pdf')) {
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        content: 'Only PDF files are allowed.',
-        type: 'system',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-      return;
-    }
-
-    // Add file to state with pending status
-    setAttachedFiles(prev => [...prev, { file, status: 'pending' }]);
-    setIsAttachMenuOpen(false);
-
-    try {
-      // Update status to uploading
-      setAttachedFiles(prev => 
-        prev.map(f => f.file === file ? { ...f, status: 'uploading' } : f)
-      );
-
-      // Start upload
-      const response = await apiService.uploadPDF(file, currentUser?.uid || '');
-
-      // Update status to completed with collection name
-      setAttachedFiles(prev => 
-        prev.map(f => f.file === file ? 
-          { ...f, status: 'completed', collectionName: response.coll_name } : f
-        )
-      );
+  // Load chat history when component mounts or session changes
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (!currentUser) return;
       
-      // Update current collection name
-      setCurrentCollectionName(response.coll_name);
-    } catch (error) {
-      // Update status to failed with error
-      setAttachedFiles(prev => 
-        prev.map(f => f.file === file ? 
-          { ...f, status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' } : f
-        )
-      );
+      try {
+        console.log('[Chat] Loading chat history');
+        if (currentSessionId) {
+          const history = await firebaseService.getChatHistory(currentUser.uid, currentSessionId);
+          console.log('[Chat] Loaded history for session:', history);
+          setMessages(history);
+          // Only set isNewChat to false if we have messages
+          if (history.length > 0) {
+            setIsNewChat(false);
+          }
+        } else {
+          const history = await firebaseService.getChatHistory(currentUser.uid);
+          console.log('[Chat] Loaded all history:', history);
+          setMessages(history);
+          // Only set isNewChat to false if we have messages
+          if (history.length > 0) {
+            setIsNewChat(false);
+          }
+        }
+      } catch (error) {
+        console.error('[Chat] Error loading chat history:', error);
+      }
+    };
 
-      // Add error message to chat
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        content: `Failed to upload "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-        type: 'system',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+    loadChatHistory();
+  }, [currentUser, currentSessionId]);
+
+  // Update isNewChat when first message is sent
+  useEffect(() => {
+    if (messages.length > 0 && isNewChat) {
+      console.log('[Chat] First message detected, updating isNewChat');
+      setIsNewChat(false);
+    }
+  }, [messages.length, isNewChat]);
+
+  // Save message to Firebase
+  const saveMessageToFirebase = async (message: Message) => {
+    if (!currentUser) return;
+    
+    try {
+      await firebaseService.saveMessage({
+        ...message,
+        userId: currentUser.uid,
+        sessionId: currentSessionId || undefined
+      });
+    } catch (error) {
+      console.error('Error saving message:', error);
     }
   };
 
-  const handleRemoveFile = (fileIndex: number) => {
-    setAttachedFiles(prev => prev.filter((_, index) => index !== fileIndex));
+  const handleRemoveFile = () => {
+    setStagedFile(null);
   };
 
   // Add source selection handler
@@ -651,13 +658,12 @@ const ChatPage = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Update PDF file when attachedFiles changes
+  // Update PDF file when staged file changes
   useEffect(() => {
-    const completedPdf = attachedFiles.find(f => f.status === 'completed')?.file;
-    if (completedPdf) {
-      setPdfFile(completedPdf);
+    if (stagedFile) {
+      setPdfFile(stagedFile);
     }
-  }, [attachedFiles]);
+  }, [stagedFile]);
 
   // Function to handle PDF load success
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
@@ -1029,23 +1035,23 @@ const ChatPage = () => {
     >
       {/* Display attachments if present */}
       {message.attachments && message.attachments.length > 0 && (
-        <div className="w-full max-w-[300px] mb-2 space-y-2">
+        <div className="w-full max-w-[300px] mb-2">
           {message.attachments.map((attachment, index) => (
             <div 
               key={index}
-              className="flex items-center gap-2 p-3 rounded-lg bg-light-bg-secondary dark:bg-dark-bg-secondary border border-light-border dark:border-dark-border"
+              className="flex items-center gap-2 p-3 rounded-lg bg-gray-800/50 backdrop-blur-sm border border-gray-700"
             >
-              <div className="p-2 rounded-lg bg-primary/10">
-                <svg className="w-6 h-6 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M13,13V18H15V13H13M9,13V18H11V13H9Z" />
+              <div className="flex-shrink-0 w-10 h-10 bg-rose-500 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-light-text-primary dark:text-dark-text-primary truncate">
+                <p className="text-sm font-medium text-white truncate">
                   {attachment.name}
                 </p>
-                <p className="text-xs text-light-text-tertiary dark:text-dark-text-tertiary">
-                  {(attachment.size / 1024).toFixed(1)} KB • PDF
+                <p className="text-xs text-gray-400 flex items-center gap-1">
+                  <span className="bg-gray-700 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">PDF</span>
                 </p>
               </div>
             </div>
@@ -1176,6 +1182,7 @@ const ChatPage = () => {
             setCurrentInput={setCurrentInput}
             isGenerating={isGenerating}
             isRecording={isRecording}
+            isFileProcessing={isFileProcessing}
             onMicClick={handleMicClick}
             onSubmit={handleSubmit}
             onAttachClick={handleUploadClick}
@@ -1186,8 +1193,8 @@ const ChatPage = () => {
             isAttachMenuOpen={isAttachMenuOpen}
             isPersonaMenuOpen={isPersonaModalOpen}
             onFileUpload={handleFileUpload}
-            attachedFiles={attachedFiles}
             onRemoveFile={handleRemoveFile}
+            stagedFile={stagedFile}
             selectedSource={selectedSource}
             selectedPersona={selectedPersona}
           />
@@ -1220,6 +1227,7 @@ const ChatPage = () => {
               setCurrentInput={setCurrentInput}
               isGenerating={isGenerating}
               isRecording={isRecording}
+              isFileProcessing={isFileProcessing}
               onMicClick={handleMicClick}
               onSubmit={handleSubmit}
               onAttachClick={handleUploadClick}
@@ -1230,8 +1238,8 @@ const ChatPage = () => {
               isAttachMenuOpen={isAttachMenuOpen}
               isPersonaMenuOpen={isPersonaModalOpen}
               onFileUpload={handleFileUpload}
-              attachedFiles={attachedFiles}
               onRemoveFile={handleRemoveFile}
+              stagedFile={stagedFile}
               selectedSource={selectedSource}
               selectedPersona={selectedPersona}
             />
@@ -1249,6 +1257,7 @@ const ChatPage = () => {
               setCurrentInput={setCurrentInput}
               isGenerating={isGenerating}
               isRecording={isRecording}
+              isFileProcessing={isFileProcessing}
               onMicClick={handleMicClick}
               onSubmit={handleSubmit}
               onAttachClick={handleUploadClick}
@@ -1259,8 +1268,8 @@ const ChatPage = () => {
               isAttachMenuOpen={isAttachMenuOpen}
               isPersonaMenuOpen={isPersonaModalOpen}
               onFileUpload={handleFileUpload}
-              attachedFiles={attachedFiles}
               onRemoveFile={handleRemoveFile}
+              stagedFile={stagedFile}
               selectedSource={selectedSource}
               selectedPersona={selectedPersona}
             />
