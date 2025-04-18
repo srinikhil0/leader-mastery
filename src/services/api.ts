@@ -27,6 +27,11 @@ interface RetrieveChunksResponse {
   answer?: string;
 }
 
+interface AudioQuestionResponse {
+  text: string;
+  answer: string;
+}
+
 export const apiService = {
   // Upload PDF file
   async uploadPDF(file: File, userId: string): Promise<UploadPDFResponse> {
@@ -63,6 +68,34 @@ export const apiService = {
         console.error('Error details:', error.response?.data);
       }
       console.error('Error uploading PDF:', error);
+      throw error;
+    }
+  },
+
+  // Send audio question
+  async sendAudioQuestion(audioBlob: Blob, userId: string, collectionName: string): Promise<AudioQuestionResponse> {
+    console.log('Starting audio question process...');
+    console.log('Audio blob size:', audioBlob.size);
+    console.log('Using Firebase User ID:', userId);
+    console.log('Collection name:', collectionName);
+
+    const formData = new FormData();
+    formData.append('audio_file', audioBlob, 'question.webm');
+    formData.append('user_id', userId);
+    formData.append('collection_name', collectionName);
+
+    try {
+      console.log('Sending audio question to:', `${API_BASE_URL}/audio_question`);
+      const response = await axios.post(`${API_BASE_URL}/audio_question`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        withCredentials: true
+      });
+      console.log('Audio question response received:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error sending audio question:', error);
       throw error;
     }
   },

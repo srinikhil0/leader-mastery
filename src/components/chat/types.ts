@@ -26,12 +26,12 @@ export interface Conversation {
 
 export interface Citation {
   id: string;
-  title: string;
+  type: string;
   content: string;
-  url?: string;
+  pageNumber: number;
+  documentName: string;
+  title: string;
   timestamp: Date;
-  type: 'pdf' | 'web';
-  pageNumber?: number;
 }
 
 export interface Persona {

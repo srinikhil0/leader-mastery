@@ -77,7 +77,10 @@ export const firebaseService = {
         content: message.content,
         type: message.type,
         timestamp: Timestamp.now(),
-        attachments: message.attachments || null
+        attachments: message.attachments || null,
+        citations: message.citations || null,
+        expert: message.expert || null,
+        sessionId: message.sessionId || null
       });
 
       // Update session's last message

@@ -1,5 +1,9 @@
-import React, { RefObject, Dispatch, SetStateAction, useRef, FormEvent, KeyboardEvent } from 'react';
+import React, { RefObject, Dispatch, SetStateAction, useRef, FormEvent, KeyboardEvent, useEffect, useState } from 'react';
 import { Persona } from './types';
+import { FaMicrophone, FaRecordVinyl } from 'react-icons/fa';
+import { apiService } from '../../services/api';
+
+// Web Speech API type declarations
 
 interface ChatInputProps {
   inputRef: RefObject<HTMLTextAreaElement | null>;
@@ -24,6 +28,9 @@ interface ChatInputProps {
   selectedPersona: Persona | null;
   availablePersonas?: Persona[];
   onPersonaSelect?: (persona: Persona) => void;
+  onSendMessage: (message: string) => void;
+  collectionName: string;
+  userId: string;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -48,9 +55,23 @@ const ChatInput: React.FC<ChatInputProps> = ({
   selectedSource,
   selectedPersona,
   availablePersonas,
-  onPersonaSelect
+  onPersonaSelect,
+  onSendMessage,
+  collectionName,
+  userId,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [isAudioRecording, setIsAudioRecording] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && isAudioRecording) {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, [isAudioRecording]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -68,10 +89,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
     const value = e.target.value;
     const cursorPosition = e.target.selectionStart;
     
-    // Set the input value
     setCurrentInput(value);
     
-    // Maintain cursor position
     requestAnimationFrame(() => {
       if (inputRef.current) {
         inputRef.current.selectionStart = cursorPosition;
@@ -79,10 +98,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
       }
     });
 
-    // Adjust textarea height
     if (e.target) {
       e.target.style.height = 'auto';
-      const maxHeight = 5 * 24; // 5 lines * 24px (line height)
+      const maxHeight = 5 * 24;
       e.target.style.height = Math.min(e.target.scrollHeight, maxHeight) + 'px';
     }
   };
@@ -96,14 +114,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
     try {
       await onSubmit(trimmedInput);
-      // Only clear input and reset height if submission was successful
       setCurrentInput('');
       if (inputRef.current) {
         inputRef.current.style.height = 'auto';
+        inputRef.current.value = '';
       }
     } catch (error) {
       console.error('Error submitting message:', error);
-      // Do not clear input on error
     }
   };
 
@@ -114,8 +131,48 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
+  // Handle audio recording
+  const handleRecordClick = async () => {
+    if (isAudioRecording) {
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+      }
+      setIsAudioRecording(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          try {
+            // Send audio directly to backend
+            const response = await apiService.sendAudioQuestion(audioBlob, userId, collectionName);
+            onSendMessage(response.text);
+          } catch (error) {
+            console.error('Error processing audio:', error);
+          }
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorder.start();
+        setIsAudioRecording(true);
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
+      }
+    }
+  };
+
   return (
-    <div className="border-t border-light-border dark:border-dark-border px-4 py-2">
+    <div className="px-4 py-2">
       <form onSubmit={handleSubmit} className="space-y-2">
         {stagedFile && (
           <div className="flex flex-wrap gap-2 mb-2">
@@ -165,47 +222,57 @@ const ChatInput: React.FC<ChatInputProps> = ({
             autoFocus
           />
           
-          {/* Send and Mic Buttons */}
           <div className="absolute right-2 top-2 flex items-center gap-2">
-            <button 
+            <button
               type="button"
-              disabled={isGenerating}
               onClick={onMicClick}
-              className={`p-1 rounded transition-colors ${isRecording ? 'text-error' : 'text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary'} disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`p-2 rounded-lg transition-colors flex items-center gap-1
+                ${isRecording 
+                  ? 'text-red-500' 
+                  : 'text-light-text-secondary dark:text-dark-text-secondary hover:text-primary'
+                }`}
+              title={isRecording ? "Stop listening" : "Start speech to text"}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
+              <FaMicrophone className="w-4 h-4" />
+              {isRecording && <span className="text-xs">Listening...</span>}
             </button>
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                disabled={isGenerating}
-                className={`p-2 rounded-lg transition-colors flex items-center justify-center
-                  ${(!currentInput.trim() && !stagedFile) || isGenerating
-                    ? 'text-light-text-tertiary dark:text-dark-text-tertiary'
-                    : 'text-primary hover:text-primary/80'
-                  }`}
-              >
-                {isGenerating ? (
-                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
-                  </svg>
-                )}
-              </button>
-              {isRecording && (
-                <div className="text-red-500 animate-pulse">Recording...</div>
+
+            <button
+              type="button"
+              onClick={handleRecordClick}
+              className={`p-2 rounded-lg transition-colors
+                ${isAudioRecording 
+                  ? 'text-red-500' 
+                  : 'text-light-text-secondary dark:text-dark-text-secondary hover:text-primary'
+                }`}
+              title={isAudioRecording ? "Stop recording" : "Record audio message"}
+            >
+              <FaRecordVinyl className={`w-4 h-4 ${isAudioRecording ? 'animate-pulse' : ''}`} />
+            </button>
+
+            <button
+              type="submit"
+              disabled={isGenerating}
+              className={`p-2 rounded-lg transition-colors flex items-center justify-center
+                ${(!currentInput.trim() && !stagedFile) || isGenerating
+                  ? 'text-light-text-tertiary dark:text-dark-text-tertiary'
+                  : 'text-primary hover:text-primary/80'
+                }`}
+            >
+              {isGenerating ? (
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
+                </svg>
               )}
-            </div>
+            </button>
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex items-center gap-3 px-1">
           <div className="relative">
             <button
@@ -219,7 +286,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
               <span>Attach</span>
             </button>
             {isAttachMenuOpen && (
-              <div data-attach-menu className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-10">
+              <div className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-10">
                 <button className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary">
                   Connect to Drive
                 </button>
@@ -276,7 +343,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
               </svg>
             </button>
             {isPersonaMenuOpen && availablePersonas && (
-              <div data-persona-menu className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-10">
+              <div className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-10">
                 {availablePersonas.map((persona) => (
                   <button
                     key={persona.id}
@@ -308,7 +375,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
               </svg>
             </button>
             {isSourceMenuOpen && (
-              <div data-source-menu className="absolute bottom-full left-0 mb-1 w-32 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1">
+              <div className="absolute bottom-full left-0 mb-1 w-32 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1">
                 <button 
                   onClick={() => onSourceSelect('internal')}
                   className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"

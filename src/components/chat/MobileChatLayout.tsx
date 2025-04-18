@@ -1,665 +1,241 @@
-import { Dispatch, SetStateAction, useState, useRef, RefObject, useEffect } from 'react';
-import { Message, Conversation, Citation, Persona } from './types';
+import { Dispatch, SetStateAction, useState, RefObject, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Message, FirebaseSession } from './types/chat';
 import SettingsModal from '../settings/SettingsModal';
 import { useAuth } from '../../hooks/useAuth';
+import { useChatState } from './hooks/useChatState';
+import { useSpeechRecognition } from './hooks/useSpeechRecognition';
+import { LeftSidebar } from './components/LeftSidebar';
+import { RightSidebar } from './components/RightSidebar';
+import PersonaModal from './components/PersonaModal';
+import { NewChatWelcome } from './components/NewChatWelcome';
+import { MessageComponent } from './components/MessageComponent';
+import ChatInput from './ChatInput';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 interface MobileChatLayoutProps {
   messages: Message[];
-  conversations: Conversation[];
-  citations: Citation[];
-  setMessages: Dispatch<SetStateAction<Message[]>>;
-  setConversations: Dispatch<SetStateAction<Conversation[]>>;
+  sessions: FirebaseSession[];
   currentInput: string;
   setCurrentInput: Dispatch<SetStateAction<string>>;
   isNewChat: boolean;
-  setIsNewChat: Dispatch<SetStateAction<boolean>>;
   isGenerating: boolean;
-  setIsGenerating: Dispatch<SetStateAction<boolean>>;
   isSidebarCollapsed: boolean;
   setIsSidebarCollapsed: Dispatch<SetStateAction<boolean>>;
   isPersonaModalOpen: boolean;
   setIsPersonaModalOpen: Dispatch<SetStateAction<boolean>>;
-  isAttachMenuOpen: boolean;
-  setIsAttachMenuOpen: Dispatch<SetStateAction<boolean>>;
   isSourceMenuOpen: boolean;
   setIsSourceMenuOpen: Dispatch<SetStateAction<boolean>>;
   isRecording: boolean;
   inputRef: RefObject<HTMLTextAreaElement>;
-  onFileUpload: (file: File) => void;
-  onPersonaSelect: (persona: Persona) => void;
-  selectedPersona: Persona | null;
-  attachedFiles: File[];
-  onRemoveFile: (fileIndex: number) => void;
-  setAttachedFiles: Dispatch<SetStateAction<File[]>>;
-  selectedSource: 'internal' | 'external' | null;
-  onSourceSelect: (source: 'internal' | 'external') => void;
-  experts: string[];
-  subExperts: string[];
-  selectedExpert: string | null;
-  selectedSubExpert: string | null;
-  setSelectedSubExpert: Dispatch<SetStateAction<string | null>>;
-  onSubmit: (input: string) => Promise<void>;
-  onMicClick: () => void;
+  currentSessionId: string | null;
+  isLoadingSessions: boolean;
+  onSendMessage: (message: string) => void;
+  collectionName: string;
+  stagedFile: File | null;
+  isFileProcessing: boolean;
 }
 
-// Get icon for expert
-const getExpertIcon = (expert: string): string => {
-  switch (expert.toLowerCase()) {
-    case 'finance':
-      return '💰';
-    case 'judicial':
-      return '⚖️';
-    case 'healthcare':
-      return '🏥';
-    default:
-      return '👤';
-  }
-};
-
-export default function MobileChatLayout({
+const MobileChatLayout: React.FC<MobileChatLayoutProps> = ({
   messages,
-  conversations,
-  citations,
-  setMessages,
-  setConversations,
+  sessions,
   currentInput,
   setCurrentInput,
   isNewChat,
-  setIsNewChat,
   isGenerating,
-  setIsGenerating,
   isSidebarCollapsed,
   setIsSidebarCollapsed,
   isPersonaModalOpen,
   setIsPersonaModalOpen,
-  isAttachMenuOpen,
-  setIsAttachMenuOpen,
   isSourceMenuOpen,
   setIsSourceMenuOpen,
   isRecording,
   inputRef,
-  onFileUpload,
-  onPersonaSelect,
-  selectedPersona,
-  attachedFiles,
-  onRemoveFile,
-  setAttachedFiles,
-  selectedSource,
-  onSourceSelect,
-  experts,
-  subExperts,
-  selectedExpert,
-  selectedSubExpert,
-  setSelectedSubExpert,
-  onSubmit,
-  onMicClick
-}: MobileChatLayoutProps) {
-  const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  currentSessionId,
+  isLoadingSessions,
+  onSendMessage,
+  collectionName,
+  stagedFile,
+  isFileProcessing
+}: MobileChatLayoutProps) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { currentUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [isCitationsVisible, setIsCitationsVisible] = useState(false);
-  
-  // Add ref for mobile chat area
-  const mobileChatAreaRef = useRef<HTMLDivElement>(null);
+  const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const [pageScale, setPageScale] = useState(1.0);
 
-  // Add scroll to bottom effect
-  const scrollToBottom = () => {
-    if (mobileChatAreaRef.current) {
-      mobileChatAreaRef.current.scrollTop = mobileChatAreaRef.current.scrollHeight;
+  // Use custom hooks
+  const {
+    handleSubmit,
+    handleFileUpload,
+    handleRemoveFile,
+    handleSessionSelect,
+    startNewChat,
+    showCitations,
+    hideCitations,
+    isCitationsVisible,
+    activeCitations,
+    currentPdfFile
+  } = useChatState({ userId: currentUser?.uid || '' });
+
+  const {
+    startRecording,
+    stopRecording
+  } = useSpeechRecognition();
+
+  const handleMicClick = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
     }
   };
 
-  // Add effect to scroll when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  const handleSourceSelect = () => {
+    setIsSourceMenuOpen(false);
+  };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      Array.from(files).forEach(file => {
-        onFileUpload(file);
-      });
+  const handleFeedback = (messageId: string, isPositive: boolean) => {
+    // TODO: Implement feedback handling
+    console.log(`Feedback for message ${messageId}: ${isPositive ? 'positive' : 'negative'}`);
+  };
+
+  const handleShowCitations = () => {
+    if (activeCitations.length > 0) {
+      showCitations(activeCitations);
     }
-  };
-
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleCopyMessage = (messageId: string, content: string) => {
-    navigator.clipboard.writeText(content)
-      .then(() => {
-        setCopiedMessageId(messageId);
-        setTimeout(() => {
-          setCopiedMessageId(null);
-        }, 2000);
-      })
-      .catch(err => {
-        console.error('Failed to copy message:', err);
-      });
   };
 
   return (
-    <div className="flex flex-col h-screen bg-light-bg-secondary dark:bg-dark-bg-secondary">
+    <div className="flex flex-col h-screen bg-light-bg-primary dark:bg-dark-bg-primary">
       {/* Mobile Header */}
-      <div className="fixed top-0 left-0 right-0 h-14 bg-light-bg-primary dark:bg-dark-bg-primary border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-30">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsSidebarCollapsed(false)}
-            className="p-2 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <img 
-            src="./leader-mastery-emblem-text.png" 
-            alt="Leader Mastery"
-            className="h-8 w-auto" 
-          />
-        </div>
-        {citations.length > 0 && (
-          <button
-            onClick={() => setIsCitationsVisible(true)}
-            className="p-2 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors text-light-text-secondary dark:text-dark-text-secondary"
-          >
-            <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-            </svg>
-          </button>
-        )}
-      </div>
-
-      {/* Mobile Content Area */}
-      <main className="flex-1 overflow-hidden mt-14 mb-[120px]">
-        {messages.length === 0 && isNewChat ? (
-          <div className="h-full flex flex-col items-center justify-center p-4">
-            <img 
-              src="./leader-mastery-emblem-text.png" 
-              alt="Leader Mastery"
-              className="h-12 w-12 mb-4" 
-            />
-            <p className="text-light-text-secondary dark:text-dark-text-secondary text-center text-xs max-w-[250px]">
-              Your AI-powered leadership development assistant. Ask me anything about leadership and management.
-            </p>
-          </div>
-        ) : (
-          <div ref={mobileChatAreaRef} className="h-full overflow-y-auto px-2 py-6 space-y-6">
-            {messages.map(message => (
-              <div
-                key={message.id}
-                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`${message.type === 'user' ? 'max-w-[92%]' : 'max-w-[92%]'}`}>
-                  {/* Display attachments if present */}
-                  {message.attachments && message.attachments.length > 0 && (
-                    <div className="mb-2 space-y-2">
-                      {message.attachments.map((attachment, index) => (
-                        <div 
-                          key={index}
-                          className="flex items-center gap-2 p-3 rounded-lg bg-light-bg-secondary dark:bg-dark-bg-secondary border border-light-border dark:border-dark-border"
-                        >
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <svg className="w-6 h-6 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                              <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                            </svg>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-light-text-primary dark:text-dark-text-primary truncate">
-                              {attachment.name}
-                            </p>
-                            <p className="text-xs text-light-text-tertiary dark:text-dark-text-tertiary">
-                              {(attachment.size / 1024).toFixed(1)} KB • PDF
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className={`rounded-lg p-4 ${
-                    message.type === 'user'
-                      ? 'bg-primary text-white'
-                      : message.type === 'system'
-                      ? 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary text-light-text-secondary dark:text-dark-text-secondary border border-light-border dark:border-dark-border'
-                      : 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary'
-                  }`}>
-                    <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
-                      {message.content}
-                    </p>
-                  </div>
-
-                  {/* Message Actions */}
-                  {message.type === 'ai' && (
-                    <div className="flex items-center gap-2 mt-2 px-1">
-                      <button
-                        onClick={() => handleCopyMessage(message.id, message.content)}
-                        className="p-1.5 rounded-lg text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary"
-                      >
-                        {copiedMessageId === message.id ? (
-                          <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                            <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                          </svg>
-                        ) : (
-                          <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                            <path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                          </svg>
-                        )}
-                      </button>
-                      {citations.length > 0 && (
-                        <button
-                          onClick={() => setIsCitationsVisible(true)}
-                          className="p-1.5 rounded-lg text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary"
-                        >
-                          <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                            <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
-
-      {/* Mobile Left Sidebar */}
-      <div 
-        className={`fixed inset-y-0 left-0 w-[85%] max-w-sm bg-light-bg-primary dark:bg-dark-bg-primary transform transition-transform duration-300 ease-out z-50
-          ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}`}
-      >
-        <div className="flex flex-col h-full">
-          {/* Sidebar Header */}
-          <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
-            <img 
-              src="./leader-mastery-emblem-text.png" 
-              alt="Leader Mastery"
-              className="h-8 w-auto"
-            />
-            <button 
-              onClick={() => setIsSidebarCollapsed(true)}
-              className="p-2 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
-            >
-              <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* New Chat Button */}
-          <button 
-            onClick={() => {
-              setIsNewChat(true);
-              setIsSidebarCollapsed(true);
-            }}
-            className="mx-4 mt-4 bg-primary text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span>New Chat</span>
-          </button>
-
-          {/* Conversation History */}
-          <div className="flex-1 overflow-y-auto py-4">
-            {conversations.map(conv => (
-              <button
-                key={conv.id}
-                onClick={() => {
-                  setIsNewChat(false);
-                  setIsSidebarCollapsed(true);
-                  setConversations((prev: Conversation[]) => prev.map((c: Conversation) => ({
-                    ...c,
-                    active: c.id === conv.id
-                  })));
-                  setMessages([]); // Clear messages when switching conversations
-                }}
-                className="w-full px-4 py-3 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary flex flex-col items-start"
-              >
-                <span className="font-medium text-light-text-primary dark:text-dark-text-primary truncate w-full text-left">
-                  {conv.title}
-                </span>
-                <span className="text-sm text-light-text-secondary dark:text-dark-text-secondary truncate w-full text-left">
-                  {conv.lastMessage}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Bottom Buttons */}
-          <div className="p-4 border-t border-light-border dark:border-dark-border space-y-2">
-            <button 
-              onClick={() => {
-                navigate('/documents');
-                setIsSidebarCollapsed(true);
-              }}
-              className="w-full py-2 px-4 rounded-lg hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary flex items-center gap-2 text-light-text-primary dark:text-dark-text-primary"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <span>Documents</span>
-            </button>
-            <button 
-              onClick={() => setIsSettingsOpen(true)}
-              className="w-full py-2 px-4 rounded-lg hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary flex items-center gap-2 text-light-text-primary dark:text-dark-text-primary"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span>Settings</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Citations Drawer */}
-      <div 
-        className={`fixed inset-y-0 right-0 w-[85%] max-w-sm bg-light-bg-primary dark:bg-dark-bg-primary transform transition-transform duration-300 ease-out z-50
-          ${isCitationsVisible ? 'translate-x-0' : 'translate-x-full'}`}
-      >
-        <div className="h-full flex flex-col pt-14">
-          <div className="p-4 border-b border-light-border dark:border-dark-border flex justify-between items-center bg-light-bg-secondary dark:bg-dark-bg-secondary">
-            <h2 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary flex items-center gap-2">
-              <svg className="w-5 h-5 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-              </svg>
-              Source Pages ({citations.length})
-            </h2>
-            <button 
-              onClick={() => setIsCitationsVisible(false)}
-              className="p-2 hover:bg-red-500/10 rounded-lg transition-all duration-200 text-light-text-secondary dark:text-dark-text-secondary hover:text-red-500"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {citations.map(citation => (
-              <div key={citation.id} className="bg-light-bg-secondary dark:bg-dark-bg-secondary p-4 rounded-lg border border-light-border dark:border-dark-border">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="flex items-center gap-2 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
-                    <svg className="w-4 h-4 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                      <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-                    </svg>
-                    Page {citation.pageNumber}
-                  </span>
-                  <span className="text-xs text-light-text-tertiary dark:text-dark-text-tertiary">
-                    {new Date(citation.timestamp).toLocaleString()}
-                  </span>
-                </div>
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary whitespace-pre-wrap">
-                    {citation.content}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Backdrop for sidebars */}
-      {(!isSidebarCollapsed || isCitationsVisible) && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40"
-          onClick={() => {
-            setIsSidebarCollapsed(true);
-            setIsCitationsVisible(false);
-          }}
+      <div className="bg-light-bg-primary dark:bg-dark-bg-primary border-b border-light-border dark:border-dark-border p-4 flex items-center justify-between">
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="p-2 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
+        >
+          <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <img 
+          src="./leader-mastery-emblem-text.png" 
+          alt="Leader Mastery"
+          className="h-8 w-auto dark:drop-shadow-[0_0_0.3rem_#ffffff70]" 
         />
+        <button
+          onClick={() => setIsSettingsOpen(true)}
+          className="p-2 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
+        >
+          <svg className="w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Mobile Sidebar */}
+      {isSidebarCollapsed && (
+        <div className="fixed inset-0 bg-black/50 z-40">
+          <div className="w-64 h-full bg-light-bg-primary dark:bg-dark-bg-primary">
+            <LeftSidebar
+              isSidebarCollapsed={false}
+              setIsSidebarCollapsed={setIsSidebarCollapsed}
+              sessions={sessions}
+              currentSessionId={currentSessionId}
+              isLoadingSessions={isLoadingSessions}
+              onSessionSelect={handleSessionSelect}
+              onNewChat={startNewChat}
+              onNavigateToDocuments={() => navigate('/documents')}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+          </div>
+        </div>
       )}
 
-      {/* Mobile Input Area */}
-      <div className="fixed bottom-0 left-0 right-0 bg-light-bg-primary dark:bg-dark-bg-primary border-t border-light-border dark:border-dark-border p-2 z-20">
-        <form 
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (currentInput.trim() && !isGenerating) {
-              try {
-                await onSubmit(currentInput);
-                setCurrentInput('');
-                setAttachedFiles([]);
-              } catch (error) {
-                console.error('Error submitting message:', error);
-              } finally {
-                setIsGenerating(false);
-              }
-            }
-          }}
-          className="space-y-2"
-        >
-          {/* Display attached files above the input */}
-          {attachedFiles.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
-              {attachedFiles.map((file, index) => (
-                <div key={index} className="inline-flex items-center gap-2 px-3 py-1.5 bg-light-bg-secondary dark:bg-dark-bg-secondary rounded-lg max-w-[300px]">
-                  <svg className="w-4 h-4 shrink-0 text-light-text-secondary dark:text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                  </svg>
-                  <span className="text-sm text-light-text-primary dark:text-dark-text-primary truncate">{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => onRemoveFile(index)}
-                    className="p-0.5 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary rounded-full text-light-text-secondary dark:text-dark-text-secondary"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 overflow-y-auto px-4 py-6">
+          {isNewChat && messages.length === 0 ? (
+            <NewChatWelcome
+              suggestedPrompts={[
+                "What are the key principles of effective leadership?",
+                "How can I improve my team's productivity?",
+                "What are some strategies for conflict resolution?",
+                "How can I develop my emotional intelligence?"
+              ]}
+              onPromptSelect={handleSubmit}
+            />
+          ) : (
+            <div className="space-y-6">
+              {messages.map(message => (
+                <MessageComponent
+                  key={message.id}
+                  message={message}
+                  onFeedback={handleFeedback}
+                  onShowCitations={handleShowCitations}
+                />
               ))}
             </div>
           )}
+        </div>
 
-          <div className="relative">
-            <textarea
-              ref={inputRef}
-              value={currentInput}
-              onChange={(e) => setCurrentInput(e.target.value)}
-              disabled={isGenerating}
-              placeholder={isGenerating ? "AI is generating..." : "Ask me anything..."}
-              rows={1}
-              style={{ resize: 'none' }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = 'auto';
-                const maxHeight = 5 * 24;
-                target.style.height = Math.min(target.scrollHeight, maxHeight) + 'px';
-              }}
-              className="w-full px-3 py-2 pr-16 rounded-lg border border-light-border dark:border-dark-border 
-                bg-light-bg-primary dark:bg-dark-bg-primary text-light-text-primary dark:text-dark-text-primary 
-                focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 
-                text-sm placeholder:text-light-text-tertiary dark:placeholder:text-dark-text-tertiary
-                min-h-[40px] max-h-[120px] overflow-y-auto leading-5"
-              autoFocus
-            />
-            
-            <div className="absolute right-2 top-2 flex items-center gap-1">
-              <button 
-                type="button"
-                disabled={isGenerating}
-                onClick={onMicClick}
-                className={`p-1.5 rounded transition-colors ${isRecording ? 'text-error' : 'text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary'} disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-              </button>
-              <button
-                type="submit"
-                disabled={!currentInput.trim() || isGenerating}
-                className="p-1.5 text-primary disabled:opacity-50"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 px-1">
-            <div className="relative">
-              <button 
-                type="button" 
-                className="text-light-text-secondary dark:text-dark-text-secondary p-1.5" 
-                onClick={() => setIsAttachMenuOpen(!isAttachMenuOpen)}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-              </button>
-              {isAttachMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-1 w-48 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1 z-50">
-                  <button 
-                    onClick={handleUploadClick}
-                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
-                  >
-                    Upload from Device
-                  </button>
-                </div>
-              )}
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                className="hidden"
-                accept=".pdf,.doc,.docx,.txt"
-                multiple
-              />
-            </div>
-
-            <button 
-              type="button" 
-              className="flex items-center gap-1 px-2 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-xs" 
-              onClick={() => setIsPersonaModalOpen(true)}
-            >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              {selectedPersona ? (
-                <span>{selectedPersona.name}</span>
-              ) : (
-                <span>Persona</span>
-              )}
-            </button>
-
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
-                className="flex items-center gap-1 px-2 py-1 border border-light-border dark:border-dark-border rounded hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary transition-colors text-light-text-primary dark:text-dark-text-primary text-xs"
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-                <span>{selectedSource ? `${selectedSource.charAt(0).toUpperCase() + selectedSource.slice(1)}` : 'Source'}</span>
-              </button>
-              {isSourceMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-1 w-32 bg-light-bg-primary dark:bg-dark-bg-primary rounded-lg shadow-lg border border-light-border dark:border-dark-border py-1">
-                  <button 
-                    onClick={() => {
-                      onSourceSelect('internal');
-                      setIsSourceMenuOpen(false);
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-xs hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
-                  >
-                    Internal
-                  </button>
-                  <button 
-                    onClick={() => {
-                      onSourceSelect('external');
-                      setIsSourceMenuOpen(false);
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-xs hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary text-light-text-primary dark:text-dark-text-primary"
-                  >
-                    External
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </form>
-
-        <p className="text-[10px] text-light-text-tertiary dark:text-dark-text-tertiary text-center mt-1">
-          AI can make mistakes. Please verify the responses.
-        </p>
+        <ChatInput
+          inputRef={inputRef}
+          currentInput={currentInput}
+          setCurrentInput={setCurrentInput}
+          isGenerating={isGenerating}
+          isRecording={isRecording}
+          onMicClick={handleMicClick}
+          onSubmit={handleSubmit}
+          onAttachClick={() => setIsAttachMenuOpen(!isAttachMenuOpen)}
+          onPersonaClick={() => setIsPersonaModalOpen(true)}
+          onSourceClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
+          onSourceSelect={handleSourceSelect}
+          isSourceMenuOpen={isSourceMenuOpen}
+          isAttachMenuOpen={isAttachMenuOpen}
+          isPersonaMenuOpen={isPersonaModalOpen}
+          onFileUpload={handleFileUpload}
+          stagedFile={stagedFile}
+          onRemoveFile={handleRemoveFile}
+          isFileProcessing={isFileProcessing}
+          selectedSource={null}
+          selectedPersona={null}
+          onPersonaSelect={() => {}}
+          onSendMessage={onSendMessage}
+          collectionName={collectionName}
+          userId={currentUser?.uid || ''}
+        />
       </div>
 
-      {/* Persona Modal */}
-      {isPersonaModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-          <div className="bg-light-bg-primary dark:bg-dark-bg-primary rounded-xl p-6 m-4 w-full max-w-lg">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary">Select Persona</h2>
-              <button 
-                onClick={() => setIsPersonaModalOpen(false)}
-                className="text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary dark:hover:text-dark-text-primary"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              {experts.map(expert => (
-                <button 
-                  key={expert}
-                  onClick={() => onPersonaSelect({
-                    id: expert.toLowerCase(),
-                    name: expert,
-                    description: `${expert} domain expertise`,
-                    icon: getExpertIcon(expert)
-                  })}
-                  className={`bg-light-bg-primary dark:bg-dark-bg-primary p-4 rounded-lg border-2 ${
-                    selectedPersona?.name === expert 
-                      ? 'border-primary' 
-                      : 'border-light-border dark:border-dark-border hover:border-primary'
-                  } transition-all duration-300 flex flex-col items-center text-center`}
-                >
-                  <span className="text-3xl mb-2">{getExpertIcon(expert)}</span>
-                  <h3 className="font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">{expert}</h3>
-                  <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                    {expert} domain expertise
-                  </p>
-                </button>
-              ))}
-            </div>
-            {selectedExpert && subExperts.length > 0 && (
-              <div className="mt-4">
-                <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary mb-3">
-                  Select Specialization
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {subExperts.map(subExpert => (
-                    <button
-                      key={subExpert}
-                      onClick={() => setSelectedSubExpert(subExpert)}
-                      className={`bg-light-bg-primary dark:bg-dark-bg-primary p-3 rounded-lg border ${
-                        selectedSubExpert === subExpert
-                          ? 'border-primary'
-                          : 'border-light-border dark:border-dark-border hover:border-primary'
-                      } transition-all duration-300`}
-                    >
-                      <span className="text-light-text-primary dark:text-dark-text-primary">
-                        {subExpert}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+      {/* Citations Sidebar */}
+      {isCitationsVisible && (
+        <div className="fixed inset-0 z-50">
+          <RightSidebar
+            isCitationsVisible={isCitationsVisible}
+            activeCitations={activeCitations}
+            pdfFile={currentPdfFile}
+            pageScale={pageScale}
+            onScaleChange={setPageScale}
+            onClose={hideCitations}
+          />
         </div>
       )}
+
+      {/* Persona Modal */}
+      <PersonaModal
+        isOpen={isPersonaModalOpen}
+        onClose={() => setIsPersonaModalOpen(false)}
+        experts={['Leadership', 'Management', 'Communication', 'Strategy']}
+        selectedExpert={null}
+        subExperts={[]}
+        selectedSubExpert={null}
+        onExpertSelect={() => {}}
+        onSubExpertSelect={() => {}}
+        onClearSubExpert={() => {}}
+      />
 
       {/* Settings Modal */}
       <SettingsModal
@@ -667,6 +243,20 @@ export default function MobileChatLayout({
         onClose={() => setIsSettingsOpen(false)}
         user={currentUser}
       />
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept=".pdf,.doc,.docx,.txt"
+        onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleFileUpload(e.target.files[0]);
+          }
+        }}
+      />
     </div>
   );
 };
+
+export default MobileChatLayout;
