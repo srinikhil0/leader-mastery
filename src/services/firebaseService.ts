@@ -9,7 +9,8 @@ import {
   doc,
   getDoc,
   updateDoc,
-  QueryDocumentSnapshot
+  QueryDocumentSnapshot,
+  onSnapshot
 } from 'firebase/firestore';
 import { 
   ref, 
@@ -166,5 +167,24 @@ export const firebaseService = {
       console.error('[Firebase] Error getting session:', error);
       throw new FirebaseError('Failed to get session', 'GET_SESSION_ERROR');
     }
+  },
+
+  // Add real-time listener for sessions
+  onSessionsUpdate(userId: string, callback: (sessions: FirebaseSession[]) => void): () => void {
+    const sessionsRef = collection(db, 'users', userId, 'sessions');
+    const q = query(sessionsRef, orderBy('createdAt', 'desc'));
+    
+    // Set up real-time listener
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const sessions = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt.toDate()
+      })) as FirebaseSession[];
+      
+      callback(sessions);
+    });
+
+    return unsubscribe;
   }
 }; 

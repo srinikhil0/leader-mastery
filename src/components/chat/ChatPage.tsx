@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Message, Conversation, Persona, Citation } from './types';
+import { Message, Persona, Citation } from './types';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
@@ -60,12 +60,25 @@ interface RetrieveChunksResponse {
   answer?: string;
 }
 
+// Add FirebaseSession type
+interface FirebaseSession {
+  id: string;
+  title: string;
+  createdAt: Date;
+  lastMessage: string;
+  isActive: boolean;
+  lastUpdated?: Date;
+  files?: Record<string, {
+    storagePath: string;
+    collectionName: string;
+    uploadedAt: Date;
+  }>;
+}
+
 const ChatPage = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [citations, setCitations] = useState<Citation[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [isNewChat, setIsNewChat] = useState(true);
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
@@ -87,10 +100,13 @@ const ChatPage = () => {
   const [selectedSubExpert, setSelectedSubExpert] = useState<string | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [isCitationsVisible, setIsCitationsVisible] = useState(false);
+  const [activeCitations, setActiveCitations] = useState<Citation[]>([]);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [pageScale, setPageScale] = useState(1.0);
   const [stagedFile, setStagedFile] = useState<File | null>(null);
+  const [sessions, setSessions] = useState<FirebaseSession[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
 
   // Input ref for focus management
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -106,23 +122,88 @@ const ChatPage = () => {
     "Tips for better time management"
   ];
 
-  // Create new session when component mounts or user changes
+  // Load sessions for sidebar
   useEffect(() => {
-    const createInitialSession = async () => {
+    const loadSessions = async () => {
       if (!currentUser) return;
       
       try {
-        console.log('[Chat] Creating initial session');
-        const sessionId = await firebaseService.createSession(currentUser.uid, 'New Chat');
-        setCurrentSessionId(sessionId);
-        setIsNewChat(true);
-        setMessages([]);
+        setIsLoadingSessions(true);
+        const userSessions = await firebaseService.getSessions(currentUser.uid);
+        setSessions(userSessions);
       } catch (error) {
-        console.error('[Chat] Error creating initial session:', error);
+        console.error('[Chat] Error loading sessions:', error);
+      } finally {
+        setIsLoadingSessions(false);
       }
     };
 
-    createInitialSession();
+    loadSessions();
+
+    // Set up real-time listener for session updates
+    if (currentUser) {
+      const unsubscribe = firebaseService.onSessionsUpdate(currentUser.uid, (updatedSessions) => {
+        setSessions(updatedSessions);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [currentUser]);
+
+  // Initialize session and messages when component mounts
+  useEffect(() => {
+    const initializeSession = async () => {
+      if (!currentUser) return;
+      
+      try {
+        // Get URL parameter for session
+        const sessionIdFromUrl = new URLSearchParams(window.location.search).get('c');
+        
+        // If there's a valid session ID in URL, try to load that session
+        if (sessionIdFromUrl) {
+          const session = await firebaseService.getSession(currentUser.uid, sessionIdFromUrl);
+          if (session) {
+            console.log('[Chat] Loading existing session from URL:', sessionIdFromUrl);
+            setCurrentSessionId(sessionIdFromUrl);
+            const history = await firebaseService.getChatHistory(currentUser.uid, sessionIdFromUrl);
+            setMessages(history);
+            setIsNewChat(false);
+            return;
+          }
+        }
+        
+        // Get all sessions
+        const userSessions = await firebaseService.getSessions(currentUser.uid);
+        setSessions(userSessions);
+        
+        if (userSessions.length > 0) {
+          // Use most recent active session
+          const activeSession = userSessions.find(s => s.isActive) || userSessions[0];
+          console.log('[Chat] Using most recent active session:', activeSession.id);
+          setCurrentSessionId(activeSession.id);
+          const history = await firebaseService.getChatHistory(currentUser.uid, activeSession.id);
+          setMessages(history);
+          setIsNewChat(false);
+          
+          // Update URL without reloading
+          window.history.replaceState({}, '', `?c=${activeSession.id}`);
+        } else {
+          // Only create new session if user has no sessions
+          console.log('[Chat] No existing sessions, creating new one');
+          const sessionId = await firebaseService.createSession(currentUser.uid, 'New Chat');
+          setCurrentSessionId(sessionId);
+          setIsNewChat(true);
+          setMessages([]);
+          
+          // Update URL without reloading
+          window.history.replaceState({}, '', `?c=${sessionId}`);
+        }
+      } catch (error) {
+        console.error('[Chat] Error initializing session:', error);
+      }
+    };
+
+    initializeSession();
   }, [currentUser]);
 
   // Add focus management with proper dependencies
@@ -507,7 +588,7 @@ const ChatPage = () => {
 
       // Update citations if any
       if (aiMessage.citations && Array.isArray(aiMessage.citations)) {
-        setCitations(prev => [...prev, ...aiMessage.citations as Citation[]]);
+        setActiveCitations(aiMessage.citations as Citation[]);
       }
     } catch (error) {
       console.error('[Chat] Error in handleSubmit:', error);
@@ -536,19 +617,11 @@ const ChatPage = () => {
       setMessages([]);
       setCurrentInput('');
       setIsNewChat(true);
-      setCitations([]);
+      setActiveCitations([]);
       inputRef.current?.focus();
     } catch (error) {
       console.error('Error creating new session:', error);
     }
-  };
-
-  // Handle conversation selection
-  const selectConversation = (conv: Conversation) => {
-    setIsNewChat(false);
-    setMessages([]); // In real app, load conversation messages
-    setConversations(prev => prev.map(c => c.id === conv.id ? {...c, active: true} : {...c, active: false}));
-    setCitations([]);
   };
 
   const handleMicClick = () => {
@@ -652,6 +725,30 @@ const ChatPage = () => {
     console.log(`Loaded ${numPages} pages`); // Just log it for now
   };
 
+  // Handle session selection
+  const handleSessionSelect = async (session: FirebaseSession) => {
+    if (!currentUser) return;
+    
+    try {
+      setIsGenerating(true);
+      setCurrentSessionId(session.id);
+      
+      // Load messages for this session
+      const history = await firebaseService.getChatHistory(currentUser.uid, session.id);
+      setMessages(history);
+      setIsNewChat(false);
+      
+      // Update UI state
+      setCurrentInput('');
+      setActiveCitations([]);
+      setIsCitationsVisible(false);
+    } catch (error) {
+      console.error('[Chat] Error switching session:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // Left Sidebar Component
   const LeftSidebar = () => (
     <div className={`${isSidebarCollapsed ? 'w-12' : 'w-64'} h-screen bg-light-bg-primary dark:bg-dark-bg-primary flex flex-col transition-all duration-300 relative`}>
@@ -697,22 +794,39 @@ const ChatPage = () => {
             <span>New Chat</span>
           </button>
 
-          {/* Conversation History */}
+          {/* Chat History */}
           <div className="flex-1 overflow-y-auto py-4">
-            {conversations.map(conv => (
-              <button
-                key={conv.id}
-                onClick={() => selectConversation(conv)}
-                className="w-full px-4 py-3 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary flex flex-col items-start"
-              >
-                <span className="font-medium text-light-text-primary dark:text-dark-text-primary truncate w-full text-left">
-                  {conv.title}
-                </span>
-                <span className="text-sm text-light-text-tertiary dark:text-dark-text-tertiary truncate w-full text-left">
-                  {conv.lastMessage}
-                </span>
-              </button>
-            ))}
+            {isLoadingSessions ? (
+              // Loading skeleton
+              <div className="space-y-2 px-4">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="h-4 bg-light-bg-tertiary dark:bg-dark-bg-tertiary rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-light-bg-tertiary dark:bg-dark-bg-tertiary rounded w-1/2"></div>
+                  </div>
+                ))}
+              </div>
+            ) : sessions.length > 0 ? (
+              sessions.map(session => (
+                <button
+                  key={session.id}
+                  onClick={() => handleSessionSelect(session)}
+                  className={`w-full px-4 py-3 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary flex flex-col items-start
+                    ${currentSessionId === session.id ? 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary' : ''}`}
+                >
+                  <span className="font-medium text-light-text-primary dark:text-dark-text-primary truncate w-full text-left">
+                    {session.title || 'New Chat'}
+                  </span>
+                  <span className="text-sm text-light-text-tertiary dark:text-dark-text-tertiary truncate w-full text-left">
+                    {session.lastMessage || 'No messages yet'}
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className="px-4 text-light-text-tertiary dark:text-dark-text-tertiary text-center">
+                No chat history
+              </div>
+            )}
           </div>
 
           {/* Bottom Buttons */}
@@ -755,7 +869,7 @@ const ChatPage = () => {
             <svg className="w-5 h-5 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
               <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
             </svg>
-            Source Pages ({citations.length})
+            Source Pages ({activeCitations.length})
           </h2>
           <div className="flex items-center gap-1">
             <button
@@ -791,9 +905,9 @@ const ChatPage = () => {
             </button>
           </div>
         </div>
-        {citations.length > 0 ? (
+        {activeCitations.length > 0 ? (
           <div className="p-4 space-y-8 overflow-y-auto h-[calc(100vh-65px)] custom-scrollbar">
-            {citations.map(citation => (
+            {activeCitations.map(citation => (
               <div key={citation.id} className="space-y-4">
                 <div className="bg-light-bg-secondary dark:bg-dark-bg-secondary p-4 rounded-lg border border-light-border dark:border-dark-border">
                   <div className="flex items-center justify-between gap-2 mb-2">
@@ -1003,9 +1117,21 @@ const ChatPage = () => {
       });
   };
 
-  const handleShowCitations = () => {
-    if (citations.length > 0) {
-      setIsCitationsVisible(!isCitationsVisible); // Toggle visibility
+  const handleShowCitations = (messageCitations: Citation[] = []) => {
+    if (messageCitations.length > 0) {
+      // If the same citations are already showing, close the panel
+      if (isCitationsVisible && 
+          JSON.stringify(activeCitations) === JSON.stringify(messageCitations)) {
+        setIsCitationsVisible(false);
+        setActiveCitations([]);
+      } else {
+        // Show new citations
+        setActiveCitations(messageCitations);
+        setIsCitationsVisible(true);
+      }
+    } else {
+      setIsCitationsVisible(false);
+      setActiveCitations([]);
     }
   };
 
@@ -1106,9 +1232,14 @@ const ChatPage = () => {
                 </div>
               </button>
               <button
-                onClick={() => handleShowCitations()}
-                className="p-1.5 rounded-full hover:-translate-y-0.5 transition-transform duration-200 ease-in-out"
-                title={isCitationsVisible ? "Hide citations" : "Show citations"}
+                onClick={() => handleShowCitations(message.citations)}
+                className={`p-1.5 rounded-full hover:-translate-y-0.5 transition-transform duration-200 ease-in-out 
+                  ${message.citations?.length 
+                    ? 'text-light-text-primary dark:text-dark-text-primary hover:text-light-text-secondary dark:hover:text-dark-text-secondary' 
+                    : 'text-light-text-tertiary dark:text-dark-text-tertiary'
+                  }`}
+                title={message.citations?.length ? "Show citations" : "No citations available"}
+                disabled={!message.citations?.length}
               >
                 <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                   <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
