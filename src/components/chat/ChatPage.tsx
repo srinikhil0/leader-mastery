@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Message, Conversation, Persona, FileUploadState, Citation } from './types';
+import { Message, Conversation, Persona, Citation } from './types';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
@@ -413,13 +413,13 @@ const ChatPage = () => {
 
   // Handle file selection
   const handleFileUpload = async (file: File) => {
-    if (!currentUser) return;
+    if (!currentUser || !currentSessionId) return;
     setStagedFile(file);
   };
 
   // Handle submit with file upload
   const handleSubmit = async (input: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !currentSessionId) return;
     if (!input.trim() && !stagedFile) return;
 
     console.log('[Chat] Starting submission');
@@ -432,7 +432,7 @@ const ChatPage = () => {
       content: input.trim(),
       type: 'user',
       timestamp: new Date(),
-      sessionId: currentSessionId || undefined,
+      sessionId: currentSessionId,
       attachments: stagedFile ? [{
         name: stagedFile.name,
         type: stagedFile.type,
@@ -445,31 +445,38 @@ const ChatPage = () => {
     setStagedFile(null);
 
     try {
-      let uploadState: FileUploadState | null = null;
+      let uploadState: { url: string, name: string } | null = null;
       
-      // If there was a staged file, upload it
+      let collectionName = currentCollectionName;
+
       if (stagedFile) {
         console.log('[Chat] Uploading staged file:', stagedFile.name);
         setIsFileProcessing(true);
-        uploadState = await firebaseService.uploadFile(currentUser.uid, stagedFile, currentSessionId || undefined);
+
+        // First upload to FastAPI to get the correct collection name
+        const apiResponse = await apiService.uploadPDF(stagedFile, currentUser.uid);
+        console.log('[Chat] API upload response:', apiResponse);
         
-        if (uploadState.status === 'error') {
-          throw new Error(uploadState.error || 'Failed to upload file');
-        }
+        // Get the collection name immediately
+        collectionName = apiResponse.coll_name;
+        setCurrentCollectionName(collectionName);
+
+        // Then upload to Firebase Storage
+        uploadState = await firebaseService.uploadPDF(currentUser.uid, currentSessionId, stagedFile);
         
-        if (uploadState.status === 'completed') {
-          setCurrentCollectionName(uploadState.collectionName || '');
+        if (!uploadState) {
+          throw new Error('Failed to upload file');
         }
       }
 
       // Save the message to Firebase
-      await saveMessageToFirebase(userMessage);
+      await firebaseService.saveMessage(currentUser.uid, currentSessionId, userMessage);
 
-      // Get answer using retrieve_chunks endpoint
-      console.log('[Chat] Calling API with input:', input.trim());
+      // Get answer using retrieve_chunks endpoint with the immediate collection name
+      console.log('[Chat] Calling API with input:', input.trim(), 'collection:', collectionName);
       const response = await apiService.askQuestion(
         input.trim(),
-        uploadState?.collectionName || currentCollectionName || '',
+        collectionName,  // Use immediate value instead of state
         currentUser.uid
       ) as RetrieveChunksResponse;
       
@@ -482,20 +489,20 @@ const ChatPage = () => {
         type: 'ai',
         timestamp: new Date(),
         expert: selectedPersona?.name || undefined,
-        sessionId: currentSessionId || undefined,
+        sessionId: currentSessionId,
         citations: response.page_numbers ? response.page_numbers.map((pageNum, index) => ({
           id: `${Date.now()}-${index}`,
           type: 'pdf',
           content: response.page_contents?.[index] || `Content from page ${pageNum}`,
           pageNumber: pageNum,
-          documentName: currentCollectionName || '',
-          title: currentCollectionName || '',
+          documentName: collectionName || '',
+          title: collectionName || '',
           timestamp: new Date()
         })) : undefined
       };
 
       console.log('[Chat] Saving AI message:', aiMessage);
-      await saveMessageToFirebase(aiMessage);
+      await firebaseService.saveMessage(currentUser.uid, currentSessionId, aiMessage);
       setMessages(prev => [...prev, aiMessage]);
 
       // Update citations if any
@@ -566,26 +573,16 @@ const ChatPage = () => {
   // Load chat history when component mounts or session changes
   useEffect(() => {
     const loadChatHistory = async () => {
-      if (!currentUser) return;
+      if (!currentUser || !currentSessionId) return;
       
       try {
         console.log('[Chat] Loading chat history');
-        if (currentSessionId) {
-          const history = await firebaseService.getChatHistory(currentUser.uid, currentSessionId);
-          console.log('[Chat] Loaded history for session:', history);
-          setMessages(history);
-          // Only set isNewChat to false if we have messages
-          if (history.length > 0) {
-            setIsNewChat(false);
-          }
-        } else {
-          const history = await firebaseService.getChatHistory(currentUser.uid);
-          console.log('[Chat] Loaded all history:', history);
-          setMessages(history);
-          // Only set isNewChat to false if we have messages
-          if (history.length > 0) {
-            setIsNewChat(false);
-          }
+        const history = await firebaseService.getChatHistory(currentUser.uid, currentSessionId);
+        console.log('[Chat] Loaded history for session:', history);
+        setMessages(history);
+        // Only set isNewChat to false if we have messages
+        if (history.length > 0) {
+          setIsNewChat(false);
         }
       } catch (error) {
         console.error('[Chat] Error loading chat history:', error);
@@ -602,21 +599,6 @@ const ChatPage = () => {
       setIsNewChat(false);
     }
   }, [messages.length, isNewChat]);
-
-  // Save message to Firebase
-  const saveMessageToFirebase = async (message: Message) => {
-    if (!currentUser) return;
-    
-    try {
-      await firebaseService.saveMessage({
-        ...message,
-        userId: currentUser.uid,
-        sessionId: currentSessionId || undefined
-      });
-    } catch (error) {
-      console.error('Error saving message:', error);
-    }
-  };
 
   const handleRemoveFile = () => {
     setStagedFile(null);
