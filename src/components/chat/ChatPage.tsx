@@ -801,8 +801,7 @@ const ChatPage = () => {
               <div className="space-y-2 px-4">
                 {[...Array(3)].map((_, i) => (
                   <div key={i} className="animate-pulse">
-                    <div className="h-4 bg-light-bg-tertiary dark:bg-dark-bg-tertiary rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-light-bg-tertiary dark:bg-dark-bg-tertiary rounded w-1/2"></div>
+                    <div className="h-4 bg-light-bg-tertiary dark:bg-dark-bg-tertiary rounded w-3/4"></div>
                   </div>
                 ))}
               </div>
@@ -811,14 +810,13 @@ const ChatPage = () => {
                 <button
                   key={session.id}
                   onClick={() => handleSessionSelect(session)}
-                  className={`w-full px-4 py-3 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary flex flex-col items-start
+                  className={`w-full px-4 py-2.5 hover:bg-light-bg-tertiary dark:hover:bg-dark-bg-tertiary flex items-center gap-2
                     ${currentSessionId === session.id ? 'bg-light-bg-tertiary dark:bg-dark-bg-tertiary' : ''}`}
                 >
-                  <span className="font-medium text-light-text-primary dark:text-dark-text-primary truncate w-full text-left">
+                  <svg className="w-0 h-4 text-light-text-tertiary dark:text-dark-text-tertiary flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                  </svg>
+                  <span className="font-medium text-light-text-primary dark:text-dark-text-primary truncate">
                     {session.title || 'New Chat'}
-                  </span>
-                  <span className="text-sm text-light-text-tertiary dark:text-dark-text-tertiary truncate w-full text-left">
-                    {session.lastMessage || 'No messages yet'}
                   </span>
                 </button>
               ))
